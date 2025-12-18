@@ -1,0 +1,5 @@
+{
+  "name": "Super Management",
+  "description": "A 3D-styled management app for Schools and Academies with local storage, WhatsApp integration, and Marathi localization.",
+  "requestFramePermissions": []
+}
