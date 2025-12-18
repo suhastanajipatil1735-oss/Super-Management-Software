@@ -15,8 +15,7 @@ import { db, seedDatabase } from './services/db';
 import { LABELS, ADMIN_CREDS, SUBSCRIPTION_PRICE } from './constants';
 import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
-import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon, CloudSync } from 'lucide-react';
-import { checkAirtableStatus, sendRequestToAirtable, syncToAirtable } from './services/airtable';
+import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
 
 const SESSION_KEY = 'super_mgmt_user_session';
 
@@ -28,7 +27,7 @@ const App = () => {
   const [showSubModal, setShowSubModal] = useState(false);
   const [isSubscriptionValid, setIsSubscriptionValid] = useState(false);
   const [autoOpenAddStudent, setAutoOpenAddStudent] = useState(false);
-  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<SubscriptionRequest | null>(null);
 
   useEffect(() => {
@@ -41,8 +40,6 @@ const App = () => {
             const user = await db.users.get(savedUserId);
             if (user) {
                 setCurrentUser(user);
-                syncWithAirtable(user);
-                
                 if (user.role === 'admin') {
                     setCurrentView('ADMIN_PANEL');
                 } else {
@@ -59,42 +56,6 @@ const App = () => {
     initApp();
   }, []);
 
-  const syncWithAirtable = async (user: UserProfile) => {
-    if (user.role !== 'owner') return;
-    setIsCloudSyncing(true);
-    
-    const status = await checkAirtableStatus(user.mobile);
-    if (status) {
-      let updatedUser = { ...user };
-      let changed = false;
-
-      // Acceptance Logic
-      if (status.acceptance && user.plan !== 'subscribed') {
-        updatedUser.plan = 'subscribed';
-        updatedUser.studentLimit = 99999;
-        updatedUser.subscription = {
-          active: true,
-          planType: 'lifetime',
-          startDate: new Date().toISOString()
-        };
-        changed = true;
-      }
-
-      // Remote Pause Logic
-      const shouldBeActive = !status.paused;
-      if (user.subscription.active !== shouldBeActive) {
-        updatedUser.subscription.active = shouldBeActive;
-        changed = true;
-      }
-
-      if (changed) {
-        await db.users.update(user.id, updatedUser);
-        setCurrentUser(updatedUser);
-      }
-    }
-    setIsCloudSyncing(false);
-  };
-
   useEffect(() => {
     if (currentUser && currentUser.plan === 'subscribed' && currentUser.subscription.active) {
        setIsSubscriptionValid(true);
@@ -107,14 +68,15 @@ const App = () => {
           .where('ownerMobile').equals(currentUser.mobile)
           .and(r => r.status === 'pending')
           .first()
-          .then(req => setPendingRequest(req || null));
+          .then(req => {
+              if (req) setPendingRequest(req);
+          });
     }
   }, [currentUser, showSubModal]);
 
   const handleLogin = (user: UserProfile) => {
     localStorage.setItem(SESSION_KEY, user.id);
     setCurrentUser(user);
-    syncWithAirtable(user);
     if (user.role === 'admin') {
       setCurrentView('ADMIN_PANEL');
     } else {
@@ -135,18 +97,9 @@ const App = () => {
   const handleSendSubscriptionRequest = async () => {
     if (!currentUser) return;
     
-    setIsCloudSyncing(true);
+    setIsProcessing(true);
     
-    // 1. Ensure user exists in Airtable
-    await syncToAirtable({
-      instituteName: currentUser.instituteName,
-      mobile: currentUser.mobile
-    });
-
-    // 2. Send the request update
-    const success = await sendRequestToAirtable(currentUser.mobile, currentUser.instituteName);
-    
-    if (success) {
+    try {
       const newRequest: SubscriptionRequest = {
           id: Date.now(),
           ownerMobile: currentUser.mobile,
@@ -158,13 +111,13 @@ const App = () => {
       await db.subscriptionRequests.add(newRequest);
       setPendingRequest(newRequest);
       
-      openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Data synced to Airtable.`);
-      alert("Request sent and synced to Airtable successfully!");
-    } else {
-      alert("Airtable sync failed. Please check your internet and try again.");
+      openWhatsApp(ADMIN_CREDS.MOBILE, `New Lifetime Subscription Request\n\nAcademy: ${currentUser.instituteName}\nMobile: ${currentUser.mobile}\nAmount: ₹${SUBSCRIPTION_PRICE}\n\nPlease approve my account.`);
+      alert("Request Sent! Admin will approve your lifetime access shortly.");
+    } catch (e) {
+      alert("An error occurred while sending the request.");
+    } finally {
+      setIsProcessing(false);
     }
-    
-    setIsCloudSyncing(false);
   };
 
   const navigate = (view: string) => {
@@ -176,7 +129,6 @@ const App = () => {
         setCurrentView('STUDENTS_VIEW');
     } else if (view === 'SUBSCRIPTION') {
         setShowSubModal(true);
-        if (currentUser) syncWithAirtable(currentUser);
     } else {
         setCurrentView(view as ViewState);
     }
@@ -193,7 +145,7 @@ const App = () => {
             <h1 className="text-3xl font-bold text-[#1e293b] mt-6 tracking-tight">Super Management</h1>
             <div className="flex flex-col items-center mt-8 gap-3">
                 <Loader2 className="animate-spin text-teal-600" size={32} />
-                <p className="text-gray-400 font-medium text-sm">Syncing with Airtable Cloud...</p>
+                <p className="text-gray-400 font-medium text-sm">Opening Secure Workspace...</p>
             </div>
           </div>
         );
@@ -236,14 +188,7 @@ const App = () => {
 
     return (
         <Layout user={currentUser} currentView={currentView} onNavigate={navigate} onLogout={handleLogout} lang={lang}>
-            <div className="relative">
-                {isCloudSyncing && (
-                  <div className="absolute -top-6 right-0 flex items-center gap-1 text-[10px] text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-full animate-pulse z-50">
-                    <CloudSync size={10} /> Syncing Airtable...
-                  </div>
-                )}
-                {content}
-            </div>
+            {content}
         </Layout>
     );
   };
@@ -256,19 +201,7 @@ const App = () => {
         onClose={() => setShowSubModal(false)} 
         title={isSubscriptionValid ? "Active Subscription" : "Get Lifetime Access"}
       >
-          {!currentUser?.subscription.active && currentUser?.plan === 'subscribed' ? (
-              <div className="p-4 text-center">
-                  <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Clock size={40} />
-                  </div>
-                  <h3 className="text-xl font-bold text-gray-800">Subscription Paused</h3>
-                  <p className="text-gray-500 mt-2">Your academy access has been temporarily suspended by the administrator in Airtable.</p>
-                  <Button variant="secondary" className="w-full mt-6" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Why is my subscription paused?")}>
-                      Contact Support
-                  </Button>
-              </div>
-          ) : (
-            <div className="p-4 text-center">
+          <div className="p-4 text-center">
                 {isSubscriptionValid ? (
                     <div className="space-y-4 animate-fade-in">
                         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
@@ -277,17 +210,17 @@ const App = () => {
                         <h3 className="text-2xl font-bold text-gray-800">Premium Active</h3>
                         <p className="text-gray-500">Full permanent access enabled for your academy.</p>
                         <div className="bg-green-50 p-4 rounded-xl border border-green-100 inline-flex items-center gap-2 text-green-700 font-bold">
-                            <CheckCircle2 size={18} /> Verified Airtable Plan
+                            <CheckCircle2 size={18} /> Verified Lifetime Plan
                         </div>
                     </div>
                 ) : pendingRequest ? (
                     <div className="space-y-4">
                         <Clock className="mx-auto text-orange-500 animate-pulse" size={56} />
-                        <h3 className="text-xl font-bold text-orange-600">Verification Pending</h3>
-                        <p className="text-gray-700 font-medium">Your request for Lifetime Access is being reviewed in Airtable.</p>
-                        <p className="text-sm text-gray-500">Admin will update your "Acceptance" column shortly.</p>
-                        <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending activation")}>
-                            Message Admin
+                        <h3 className="text-xl font-bold text-orange-600">Approval Pending</h3>
+                        <p className="text-gray-700 font-medium">Your request has been logged.</p>
+                        <p className="text-sm text-gray-500">The administrator is reviewing your account.</p>
+                        <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my academy activation")}>
+                            Message Support
                         </Button>
                     </div>
                 ) : (
@@ -297,21 +230,21 @@ const App = () => {
                         <div className="text-3xl font-black text-[#1e293b]">₹{SUBSCRIPTION_PRICE}</div>
                         
                         <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100 mt-4">
-                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Student Records</p>
-                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Airtable Cloud Data Sync</p>
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Students</p>
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Full PDF Report Generation</p>
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> One-time Payment</p>
                         </div>
 
                         <Button 
-                          className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" 
+                          className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4 shadow-lg transition-transform active:scale-95" 
                           onClick={handleSendSubscriptionRequest}
-                          disabled={isCloudSyncing}
+                          disabled={isProcessing}
                         >
-                            {isCloudSyncing ? "Syncing..." : "Request Lifetime Access"}
+                            {isProcessing ? "Processing..." : "Request Lifetime Access"}
                         </Button>
                     </div>
                 )}
             </div>
-          )}
       </Modal>
     </div>
   );

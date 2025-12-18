@@ -4,7 +4,6 @@ import { Card, Button, Input } from '../components/UI';
 import { ADMIN_CREDS, LABELS } from '../constants';
 import { db } from '../services/db';
 import { UserProfile } from '../types';
-import { syncToAirtable } from '../services/airtable';
 
 interface LoginProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -60,16 +59,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
          user = { ...user, instituteName: details.name };
       }
 
-      // 3. Sync to Airtable
-      syncToAirtable({
-        instituteName: user.instituteName,
-        mobile: user.mobile
-      }).catch(err => console.warn("Airtable sync failed", err));
-      
       onLoginSuccess(user);
     } catch (err) {
       console.error("Critical login error:", err);
-      alert("A system error occurred. Please refresh the page and try again.");
+      alert("A system error occurred. Please refresh the page.");
     } finally {
       setIsLoggingIn(false);
     }
@@ -88,7 +81,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
           <div className="space-y-6">
              <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-700">{labels.loginTitle}</h2>
-                <div className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold uppercase">Airtable Cloud</div>
+                <div className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full font-bold uppercase tracking-wide">Secure Access</div>
              </div>
              <Input 
                label={labels.instName} 
@@ -107,7 +100,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
                disabled={isLoggingIn}
              />
              <Button className="w-full h-12 text-lg font-bold" onClick={handleLogin} disabled={isLoggingIn}>
-               {isLoggingIn ? "Connecting to Airtable..." : labels.sendCode}
+               {isLoggingIn ? "Logging in..." : labels.sendCode}
              </Button>
           </div>
         </Card>
