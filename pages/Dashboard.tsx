@@ -1,10 +1,11 @@
+
 import React, { useEffect, useState } from 'react';
 import { UserProfile, Student } from '../types';
 import { db } from '../services/db';
 import { Card, Button, Modal, Input } from '../components/UI';
 import { LABELS, THEME, ADMIN_CREDS } from '../constants';
-import { Users, IndianRupee, Clock, Plus, MoreHorizontal, MessageCircleQuestion, Key, GraduationCap, Briefcase, ChevronRight, Share2 } from 'lucide-react';
-import { formatCurrency, openWhatsApp } from '../services/whatsapp';
+import { Users, IndianRupee, Clock, Plus, MoreHorizontal, MessageCircleQuestion, Key, GraduationCap, Briefcase, Share2, Copy } from 'lucide-react';
+import { formatCurrency, openWhatsApp, generateTeacherAccessLink } from '../services/whatsapp';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 interface DashboardProps {
@@ -42,7 +43,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
   const dataOwnerMobile = isOwner ? user.mobile : user.linkedOwnerMobile;
 
   useEffect(() => {
-    // Sync local state with user prop when it changes
     setTeacherCode(user.teacherCode || '');
   }, [user.teacherCode]);
 
@@ -53,7 +53,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
         setStudents(studData);
         
         if (isOwner) {
-            // Count teachers linked to this owner
             const teachers = await db.users.where('linkedOwnerMobile').equals(user.mobile).count();
             setTeacherCount(teachers);
         }
@@ -64,29 +63,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
 
   const handleSaveCode = async () => {
       if (!teacherCode) return alert("Code cannot be empty");
-      
-      // Update DB
       await db.users.update(user.id, { teacherCode });
-      
-      // Update Global State
       const updatedUser = { ...user, teacherCode };
       onUpdateUser(updatedUser);
-      
       setShowCodeModal(false);
-      alert("Teacher Code Updated Successfully!");
+  };
+
+  const handleShareAccess = () => {
+      if (!user.teacherCode) return alert("Please set a teacher code first!");
+      const link = generateTeacherAccessLink(user.mobile, user.instituteName, user.teacherCode);
+      const msg = `*Teacher Access Invitation*\n\nAcademy: *${user.instituteName}*\nLogin Code: *${user.teacherCode}*\n\nClick this link to join on your mobile:\n${link}`;
+      openWhatsApp('', msg); // Opens WA to choose contact
   };
 
   const totalFees = students.reduce((acc, s) => acc + s.feesTotal, 0);
   const collectedFees = students.reduce((acc, s) => acc + s.feesPaid, 0);
   const dueFees = totalFees - collectedFees;
 
-  // Real data for the chart comparison
   const financialData = [
       { name: labels.feesCollected, amount: collectedFees },
       { name: labels.feesDue, amount: dueFees }
   ];
 
-  // Attendance Mock Data for donut
   const attendanceData = [
     { name: 'Present', value: 84, color: '#38a169' },
     { name: 'Absent', value: 16, color: '#fbbf24' },
@@ -94,10 +92,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
 
   return (
     <div className="space-y-6 animate-fade-in">
-      
-      {/* Action Banner for Support & Code */}
-      <div className="flex justify-end gap-3 mb-2">
+      <div className="flex flex-wrap justify-end gap-3 mb-2">
          {isOwner && (
+            <>
             <Button 
                 size="sm" 
                 variant="secondary" 
@@ -107,13 +104,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
                 <Key size={16} /> 
                 {user.teacherCode ? `Code: ${user.teacherCode}` : "Set Teacher Code"}
             </Button>
+            {user.teacherCode && (
+                <Button 
+                    size="sm" 
+                    variant="secondary" 
+                    onClick={handleShareAccess} 
+                    className="bg-[#4fd1c5]/10 border-none shadow-sm text-[#319795] hover:bg-[#4fd1c5]/20 font-bold"
+                >
+                    <Share2 size={16} /> Share Link to Teacher
+                </Button>
+            )}
+            </>
          )}
          <Button size="sm" variant="secondary" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Hi")} className="bg-white border-none shadow-sm text-blue-600 hover:bg-blue-50">
-             <MessageCircleQuestion size={16} /> Help & Support
+             <MessageCircleQuestion size={16} /> Help
          </Button>
       </div>
 
-      {/* Top Stats Row */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard 
             title={labels.totalStudents} 
@@ -131,13 +138,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
             />
             <StatCard 
                 title={labels.feesCollected} 
-                value={formatCurrency(collectedFees).replace('₹', '') + 'k'} // Simplified formatting
+                value={'₹' + (collectedFees / 1000).toFixed(1) + 'k'} 
                 icon={<IndianRupee size={24} />} 
                 colorClass="bg-orange-100 text-orange-500"
             />
             <StatCard 
                 title={labels.feesDue} 
-                value={formatCurrency(dueFees).replace('₹', '')} 
+                value={'₹' + (dueFees / 1000).toFixed(1) + 'k'} 
                 icon={<Clock size={24} />} 
                 colorClass="bg-teal-100 text-teal-600"
             />
@@ -145,14 +152,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
         )}
       </div>
 
-      {/* Main Grid: Charts & Calendar */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        {/* Left Column (2/3) - Owner Only */}
         {isOwner && (
         <div className="lg:col-span-2 space-y-6">
-            
-            {/* Chart Card */}
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-6">
                     <h3 className="font-bold text-lg text-gray-800">Financial Overview</h3>
@@ -176,60 +178,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
                     </ResponsiveContainer>
                 </div>
             </div>
-
-            {/* Top Performers / Recent List */}
-            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
-                <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg text-gray-800">Recent Admissions</h3>
-                    <button className="text-gray-400 hover:text-gray-600"><MoreHorizontal size={20} /></button>
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="w-full text-left">
-                        <thead>
-                            <tr className="text-gray-400 text-xs uppercase tracking-wider border-b border-gray-50">
-                                <th className="pb-3 font-medium">Name</th>
-                                <th className="pb-3 font-medium">ID No</th>
-                                <th className="pb-3 font-medium">Class</th>
-                                <th className="pb-3 font-medium">Fees Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="text-sm">
-                            {students.slice(0, 4).map((s, i) => (
-                                <tr key={s.id} className="group hover:bg-gray-50 transition-colors">
-                                    <td className="py-3 font-semibold text-gray-700 flex items-center gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-xs font-bold">
-                                            {s.name.charAt(0)}
-                                        </div>
-                                        {s.name}
-                                    </td>
-                                    <td className="py-3 text-gray-500">{s.rollNo || '-'}</td>
-                                    <td className="py-3 text-gray-500">{s.classGrade}th</td>
-                                    <td className="py-3">
-                                        <div className="w-full max-w-[100px] h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                                            <div 
-                                                className={`h-full rounded-full ${s.feesTotal - s.feesPaid <= 0 ? 'bg-green-500' : 'bg-red-400'}`} 
-                                                style={{ width: `${Math.min((s.feesPaid / s.feesTotal) * 100, 100)}%` }}
-                                            ></div>
-                                        </div>
-                                        <span className="text-xs text-gray-400 mt-1 block">
-                                            {s.feesTotal - s.feesPaid <= 0 ? 'Fully Paid' : 'Pending'}
-                                        </span>
-                                    </td>
-                                </tr>
-                            ))}
-                             {students.length === 0 && <tr><td colSpan={4} className="text-center py-4 text-gray-400">No students yet</td></tr>}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
         </div>
         )}
 
-        {/* Right Column (1/3) */}
         <div className={isOwner ? "space-y-6" : "lg:col-span-3 space-y-6"}>
-            
-            {/* Attendance Chart */}
             <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 ${!isOwner ? 'max-w-xl' : ''}`}>
                 <div className="flex justify-between items-center mb-4">
                     <h3 className="font-bold text-lg text-gray-800">Attendance</h3>
@@ -258,45 +210,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
                          <span className="text-xs text-gray-400">Average</span>
                     </div>
                 </div>
-                <div className="flex justify-center gap-6 mt-2">
-                     <div className="text-center">
-                         <p className="text-xs text-gray-400">Students</p>
-                         <p className="font-bold text-[#1e293b]">84%</p>
-                     </div>
-                     <div className="text-center">
-                         <p className="text-xs text-gray-400">Teachers</p>
-                         <p className="font-bold text-[#1e293b] text-yellow-500">91%</p>
-                     </div>
-                </div>
             </div>
-
-            {/* Promo Banner - Owner Only - HIDDEN IF LIFETIME */}
-            {isOwner && user.subscription?.planType !== 'lifetime' && (
-            <div className="bg-[#1e293b] rounded-xl p-6 text-white relative overflow-hidden">
-                 <div className="relative z-10">
-                     <h3 className="font-bold text-lg mb-2">Upgrade to Premium</h3>
-                     <p className="text-xs text-gray-300 mb-4 pr-10">Get Lifetime access with unlimited students.</p>
-                     <Button size="sm" onClick={() => onNavigate('SUBSCRIPTION')} className="bg-white text-[#1e293b] border-none hover:bg-gray-100">
-                         Upgrade Now
-                     </Button>
-                 </div>
-                 <div className="absolute -bottom-6 -right-6 w-24 h-24 bg-[#4fd1c5] rounded-full opacity-20"></div>
-                 <div className="absolute top-4 right-4 w-12 h-12 bg-[#fbbf24] rounded-full opacity-20"></div>
-            </div>
-            )}
-
         </div>
-
       </div>
 
-      {/* Teacher Code Modal */}
       <Modal isOpen={showCodeModal} onClose={() => setShowCodeModal(false)} title="Teacher Access Code">
           <div className="space-y-4">
               <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 mb-2">
                   <p className="text-sm text-yellow-800 font-bold mb-1">Current Code</p>
                   <p className="text-2xl font-mono text-gray-800">{teacherCode || 'Not Set'}</p>
               </div>
-              <p className="text-gray-600 text-sm">Set a code for your teachers. They will need this code to login.</p>
+              <p className="text-gray-600 text-sm">Set a code for your teachers. They will need this code to login on their mobile.</p>
               <Input 
                   label="Enter New Code"
                   value={teacherCode}

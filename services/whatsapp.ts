@@ -1,9 +1,21 @@
+
 // WhatsApp Utility
 
 export const openWhatsApp = (mobile: string, message: string) => {
   const encodedMsg = encodeURIComponent(message);
   const url = `https://api.whatsapp.com/send?phone=91${mobile}&text=${encodedMsg}`;
   window.open(url, '_blank');
+};
+
+export const generateTeacherAccessLink = (ownerMobile: string, instituteName: string, code: string) => {
+  const baseUrl = window.location.origin + window.location.pathname;
+  const params = new URLSearchParams({
+    action: 'join',
+    om: btoa(ownerMobile), // Base64 for a bit of obfuscation
+    in: btoa(instituteName),
+    tc: btoa(code)
+  });
+  return `${baseUrl}?${params.toString()}`;
 };
 
 export const generateOTP = () => {
