@@ -16,7 +16,7 @@ import { LABELS, ADMIN_CREDS, SUBSCRIPTION_PRICE } from './constants';
 import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
 import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon, CloudSync } from 'lucide-react';
-import { checkAirtableStatus, sendRequestToAirtable } from './services/airtable';
+import { checkAirtableStatus, sendRequestToAirtable, syncToAirtable } from './services/airtable';
 
 const SESSION_KEY = 'super_mgmt_user_session';
 
@@ -59,9 +59,6 @@ const App = () => {
     initApp();
   }, []);
 
-  /**
-   * Poll Airtable to check if Admin has accepted the request or paused the account
-   */
   const syncWithAirtable = async (user: UserProfile) => {
     if (user.role !== 'owner') return;
     setIsCloudSyncing(true);
@@ -71,7 +68,7 @@ const App = () => {
       let updatedUser = { ...user };
       let changed = false;
 
-      // Acceptance: If Admin set Acceptance to True in Airtable
+      // Acceptance Logic
       if (status.acceptance && user.plan !== 'subscribed') {
         updatedUser.plan = 'subscribed';
         updatedUser.studentLimit = 99999;
@@ -83,7 +80,7 @@ const App = () => {
         changed = true;
       }
 
-      // Check for remote Pause
+      // Remote Pause Logic
       const shouldBeActive = !status.paused;
       if (user.subscription.active !== shouldBeActive) {
         updatedUser.subscription.active = shouldBeActive;
@@ -138,22 +135,36 @@ const App = () => {
   const handleSendSubscriptionRequest = async () => {
     if (!currentUser) return;
     
-    const newRequest: SubscriptionRequest = {
-        id: Date.now(),
-        ownerMobile: currentUser.mobile,
-        instituteName: currentUser.instituteName,
-        monthsRequested: 999,
-        status: 'pending',
-        requestDate: new Date().toISOString()
-    };
+    setIsCloudSyncing(true);
+    
+    // 1. Ensure user exists in Airtable
+    await syncToAirtable({
+      instituteName: currentUser.instituteName,
+      mobile: currentUser.mobile
+    });
 
-    await db.subscriptionRequests.add(newRequest);
-    setPendingRequest(newRequest);
+    // 2. Send the request update
+    const success = await sendRequestToAirtable(currentUser.mobile, currentUser.instituteName);
     
-    // Sync to Airtable
-    await sendRequestToAirtable(currentUser.mobile);
+    if (success) {
+      const newRequest: SubscriptionRequest = {
+          id: Date.now(),
+          ownerMobile: currentUser.mobile,
+          instituteName: currentUser.instituteName,
+          monthsRequested: 999,
+          status: 'pending',
+          requestDate: new Date().toISOString()
+      };
+      await db.subscriptionRequests.add(newRequest);
+      setPendingRequest(newRequest);
+      
+      openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Data synced to Airtable.`);
+      alert("Request sent and synced to Airtable successfully!");
+    } else {
+      alert("Airtable sync failed. Please check your internet and try again.");
+    }
     
-    openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Request logged in Airtable.`);
+    setIsCloudSyncing(false);
   };
 
   const navigate = (view: string) => {
@@ -182,7 +193,7 @@ const App = () => {
             <h1 className="text-3xl font-bold text-[#1e293b] mt-6 tracking-tight">Super Management</h1>
             <div className="flex flex-col items-center mt-8 gap-3">
                 <Loader2 className="animate-spin text-teal-600" size={32} />
-                <p className="text-gray-400 font-medium text-sm">Syncing with Airtable...</p>
+                <p className="text-gray-400 font-medium text-sm">Syncing with Airtable Cloud...</p>
             </div>
           </div>
         );
@@ -290,8 +301,12 @@ const App = () => {
                             <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Airtable Cloud Data Sync</p>
                         </div>
 
-                        <Button className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" onClick={handleSendSubscriptionRequest}>
-                            Request Lifetime Access
+                        <Button 
+                          className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" 
+                          onClick={handleSendSubscriptionRequest}
+                          disabled={isCloudSyncing}
+                        >
+                            {isCloudSyncing ? "Syncing..." : "Request Lifetime Access"}
                         </Button>
                     </div>
                 )}
