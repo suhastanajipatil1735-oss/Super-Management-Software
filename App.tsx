@@ -15,7 +15,8 @@ import { db, seedDatabase } from './services/db';
 import { LABELS, ADMIN_CREDS, SUBSCRIPTION_PRICE } from './constants';
 import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
-import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
+import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon, CloudSync } from 'lucide-react';
+import { checkSheetStatus, sendRequestToSheet } from './services/googleSheets';
 
 const SESSION_KEY = 'super_mgmt_user_session';
 
@@ -28,6 +29,7 @@ const App = () => {
   const [isSubscriptionValid, setIsSubscriptionValid] = useState(false);
   const [autoOpenAddStudent, setAutoOpenAddStudent] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<SubscriptionRequest | null>(null);
+  const [isCloudSyncing, setIsCloudSyncing] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
@@ -39,6 +41,9 @@ const App = () => {
             const user = await db.users.get(savedUserId);
             if (user) {
                 setCurrentUser(user);
+                // Perform initial cloud sync check
+                syncWithGoogleSheets(user);
+                
                 if (user.role === 'admin') {
                     setCurrentView('ADMIN_PANEL');
                 } else {
@@ -54,6 +59,41 @@ const App = () => {
     };
     initApp();
   }, []);
+
+  const syncWithGoogleSheets = async (user: UserProfile) => {
+    if (user.role !== 'owner') return;
+    setIsCloudSyncing(true);
+    const status = await checkSheetStatus(user.mobile);
+    if (status) {
+      let updatedUser = { ...user };
+      let changed = false;
+
+      // Check for Acceptance (Unlock Premium)
+      if (status.acceptance && user.plan !== 'subscribed') {
+        updatedUser.plan = 'subscribed';
+        updatedUser.studentLimit = 99999;
+        updatedUser.subscription = {
+          active: true,
+          planType: 'lifetime',
+          startDate: new Date().toISOString()
+        };
+        changed = true;
+      }
+
+      // Check for Pause
+      const shouldBeActive = !status.paused;
+      if (user.subscription.active !== shouldBeActive) {
+        updatedUser.subscription.active = shouldBeActive;
+        changed = true;
+      }
+
+      if (changed) {
+        await db.users.update(user.id, updatedUser);
+        setCurrentUser(updatedUser);
+      }
+    }
+    setIsCloudSyncing(false);
+  };
 
   useEffect(() => {
     if (currentUser && currentUser.plan === 'subscribed' && currentUser.subscription.active) {
@@ -74,6 +114,7 @@ const App = () => {
   const handleLogin = (user: UserProfile) => {
     localStorage.setItem(SESSION_KEY, user.id);
     setCurrentUser(user);
+    syncWithGoogleSheets(user);
     if (user.role === 'admin') {
       setCurrentView('ADMIN_PANEL');
     } else {
@@ -105,6 +146,9 @@ const App = () => {
 
     await db.subscriptionRequests.add(newRequest);
     setPendingRequest(newRequest);
+    
+    // Notify Sheet
+    sendRequestToSheet(currentUser.mobile, currentUser.instituteName);
     
     openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Amount: ₹${SUBSCRIPTION_PRICE}`);
   };
@@ -177,7 +221,14 @@ const App = () => {
 
     return (
         <Layout user={currentUser} currentView={currentView} onNavigate={navigate} onLogout={handleLogout} lang={lang}>
-            {content}
+            <div className="relative">
+                {isCloudSyncing && (
+                  <div className="absolute -top-6 right-0 flex items-center gap-1 text-[10px] text-teal-600 font-bold bg-teal-50 px-2 py-0.5 rounded-full animate-pulse z-50">
+                    <CloudSync size={10} /> Cloud Syncing...
+                  </div>
+                )}
+                {content}
+            </div>
         </Layout>
     );
   };
@@ -190,49 +241,62 @@ const App = () => {
         onClose={() => setShowSubModal(false)} 
         title={isSubscriptionValid ? "Active Subscription" : "Get Lifetime Access"}
       >
-          <div className="p-4 text-center">
-              {isSubscriptionValid ? (
-                  <div className="space-y-4 animate-fade-in">
-                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
-                        <InfinityIcon size={48} />
-                      </div>
-                      <h3 className="text-2xl font-bold text-gray-800">Premium Active</h3>
-                      <p className="text-gray-500">Full permanent access enabled for your academy.</p>
-                      <div className="bg-green-50 p-4 rounded-xl border border-green-100 inline-flex items-center gap-2 text-green-700 font-bold">
-                          <CheckCircle2 size={18} /> Verified Lifetime Plan
-                      </div>
+          {!currentUser?.subscription.active && currentUser?.plan === 'subscribed' ? (
+              <div className="p-4 text-center">
+                  <div className="w-20 h-20 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <Clock size={40} />
                   </div>
-              ) : pendingRequest ? (
-                  <div className="space-y-4">
-                      <Clock className="mx-auto text-orange-500 animate-pulse" size={56} />
-                      <h3 className="text-xl font-bold text-orange-600">Verification Pending</h3>
-                      <p className="text-gray-700 font-medium">Your request for Lifetime Access is being reviewed.</p>
-                      <p className="text-sm text-gray-500">Contact admin if it takes longer than 24 hours.</p>
-                      <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending activation")}>
-                          Message Admin
-                      </Button>
-                  </div>
-              ) : (
-                  <div className="space-y-4">
-                      <Crown className="mx-auto text-yellow-500" size={56} />
-                      <h3 className="text-2xl font-bold">Upgrade Now</h3>
-                      <div className="text-3xl font-black text-[#1e293b]">₹{SUBSCRIPTION_PRICE}</div>
-                      <div className="flex items-center justify-center gap-1 text-teal-600 font-bold bg-teal-50 py-1 px-3 rounded-full w-fit mx-auto text-sm">
-                         <InfinityIcon size={16} /> One-time Payment
-                      </div>
-                      
-                      <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100 mt-4">
-                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Professional PDF Receipts</p>
-                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Student Records</p>
-                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Exam Result Automation</p>
-                      </div>
+                  <h3 className="text-xl font-bold text-gray-800">Subscription Paused</h3>
+                  <p className="text-gray-500 mt-2">Your academy access has been temporarily suspended by the administrator.</p>
+                  <Button variant="secondary" className="w-full mt-6" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Why is my subscription paused?")}>
+                      Contact Support
+                  </Button>
+              </div>
+          ) : (
+            <div className="p-4 text-center">
+                {isSubscriptionValid ? (
+                    <div className="space-y-4 animate-fade-in">
+                        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                          <InfinityIcon size={48} />
+                        </div>
+                        <h3 className="text-2xl font-bold text-gray-800">Premium Active</h3>
+                        <p className="text-gray-500">Full permanent access enabled for your academy.</p>
+                        <div className="bg-green-50 p-4 rounded-xl border border-green-100 inline-flex items-center gap-2 text-green-700 font-bold">
+                            <CheckCircle2 size={18} /> Verified Lifetime Plan
+                        </div>
+                    </div>
+                ) : pendingRequest ? (
+                    <div className="space-y-4">
+                        <Clock className="mx-auto text-orange-500 animate-pulse" size={56} />
+                        <h3 className="text-xl font-bold text-orange-600">Verification Pending</h3>
+                        <p className="text-gray-700 font-medium">Your request for Lifetime Access is being reviewed.</p>
+                        <p className="text-sm text-gray-500">Contact admin if it takes longer than 24 hours.</p>
+                        <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending activation")}>
+                            Message Admin
+                        </Button>
+                    </div>
+                ) : (
+                    <div className="space-y-4">
+                        <Crown className="mx-auto text-yellow-500" size={56} />
+                        <h3 className="text-2xl font-bold">Upgrade Now</h3>
+                        <div className="text-3xl font-black text-[#1e293b]">₹{SUBSCRIPTION_PRICE}</div>
+                        <div className="flex items-center justify-center gap-1 text-teal-600 font-bold bg-teal-50 py-1 px-3 rounded-full w-fit mx-auto text-sm">
+                           <InfinityIcon size={16} /> One-time Payment
+                        </div>
+                        
+                        <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100 mt-4">
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Professional PDF Receipts</p>
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Student Records</p>
+                            <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Exam Result Automation</p>
+                        </div>
 
-                      <Button className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" onClick={handleSendSubscriptionRequest}>
-                          Request Lifetime Access
-                      </Button>
-                  </div>
-              )}
-          </div>
+                        <Button className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" onClick={handleSendSubscriptionRequest}>
+                            Request Lifetime Access
+                        </Button>
+                    </div>
+                )}
+            </div>
+          )}
       </Modal>
     </div>
   );

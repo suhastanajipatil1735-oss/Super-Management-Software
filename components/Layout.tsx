@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UserProfile, ViewState } from '../types';
 import { 
   LayoutDashboard, Users, Calendar, Wallet, Settings, 
-  LogOut, Search, Menu, X, Crown, ClipboardList, UserMinus
+  LogOut, Search, Menu, X, Crown, ClipboardList, UserMinus, AlertCircle
 } from 'lucide-react';
 import { LABELS } from '../constants';
 
@@ -38,6 +38,8 @@ const SidebarItem: React.FC<{
 export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onNavigate, onLogout, lang }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const labels = LABELS[lang];
+
+  const isPaused = !user.subscription.active && user.plan === 'subscribed';
 
   const getViewName = (view: ViewState) => {
     switch (view) {
@@ -107,7 +109,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
   ];
 
   return (
-    <div className="flex min-h-screen bg-[#f1f5f9] font-poppins">
+    <div className={`flex min-h-screen font-poppins transition-colors duration-500 ${isPaused ? 'bg-red-50' : 'bg-[#f1f5f9]'}`}>
       {/* Sidebar - Desktop & Mobile */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e293b] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
         {/* Sidebar Header - Fixed */}
@@ -146,7 +148,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
             ))}
           </nav>
           
-          {/* Logout Section - Part of scroll if items are many, but at the end */}
+          {/* Logout Section */}
           <div className="py-6 border-t border-gray-700/50">
              <SidebarItem 
                icon={<LogOut size={20} />} 
@@ -157,16 +159,21 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
           </div>
         </div>
 
-        {/* Sidebar Footer - Optional Branding or Version */}
         <div className="p-4 border-t border-gray-700/50 shrink-0">
            <p className="text-[10px] text-gray-500 text-center font-bold tracking-widest uppercase">
-             Super Management v1.0
+             Cloud Managed System
            </p>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
+      <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative">
+        {isPaused && (
+          <div className="bg-red-600 text-white text-xs font-bold py-2 text-center sticky top-20 z-40 flex items-center justify-center gap-2 animate-pulse">
+            <AlertCircle size={14} /> ACCOUNT PAUSED: Access restricted by Admin. Please contact support.
+          </div>
+        )}
+
         {/* Header */}
         <header className="h-20 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shrink-0">
            <div className="flex items-center gap-4">
@@ -187,11 +194,9 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
               </div>
 
               <div className="flex items-center gap-4">
-                 {/* Clickable Profile Section */}
                  <div 
                     className="flex items-center gap-3 pl-4 border-l border-gray-100 cursor-pointer hover:bg-gray-50 rounded-lg p-2 transition-all duration-200 group"
                     onClick={() => onNavigate('SETTINGS_VIEW')}
-                    title="View Profile Settings"
                  >
                     <div className="text-right hidden md:block">
                        <p className="text-sm font-bold text-[#1e293b] group-hover:text-teal-600 transition-colors">{user.instituteName}</p>
@@ -206,7 +211,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
         </header>
 
         {/* Page Content */}
-        <main className="p-4 md:p-8 overflow-y-auto flex-1">
+        <main className={`p-4 md:p-8 overflow-y-auto flex-1 transition-opacity duration-300 ${isPaused ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
            {children}
         </main>
       </div>

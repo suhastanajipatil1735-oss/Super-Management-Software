@@ -4,6 +4,7 @@ import { Card, Button, Input } from '../components/UI';
 import { ADMIN_CREDS, LABELS } from '../constants';
 import { db } from '../services/db';
 import { UserProfile } from '../types';
+import { syncToGoogleSheet } from '../services/googleSheets';
 
 interface LoginProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -55,12 +56,17 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
         };
         await db.users.add(user);
       } else {
-         // Update name if changed on revisit
-         await db.users.update(user.id, { 
-             instituteName: details.name 
-         });
+         await db.users.update(user.id, { instituteName: details.name });
          user = { ...user, instituteName: details.name };
       }
+
+      // 3. Sync to Google Sheets in background
+      syncToGoogleSheet({
+        instituteName: user.instituteName,
+        mobile: user.mobile,
+        status: user.plan,
+        requestSent: false
+      }).catch(err => console.warn("Initial sheet sync failed", err));
       
       onLoginSuccess(user);
     } catch (err) {
@@ -103,7 +109,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
                {isLoggingIn ? (
                  <span className="flex items-center gap-2">
                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                   Setting Up...
+                   Syncing with Cloud...
                  </span>
                ) : labels.sendCode}
              </Button>
