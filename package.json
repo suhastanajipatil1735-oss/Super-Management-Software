@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "recharts": "^3.5.1",
     "react": "^19.2.3",
-    "lucide-react": "^0.560.0",
     "react-dom": "^19.2.3",
-    "dexie": "^4.2.1",
+    "lucide-react": "0.460.0",
+    "recharts": "2.13.3",
+    "dexie": "4.0.8",
     "jspdf": "2.5.1"
   },
   "devDependencies": {
