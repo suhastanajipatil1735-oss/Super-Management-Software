@@ -108,9 +108,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
 
   return (
     <div className="flex min-h-screen bg-[#f1f5f9] font-poppins">
-      {/* Sidebar - Desktop */}
-      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e293b] transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
-        <div className="flex items-center justify-between h-20 px-6 border-b border-gray-700/50">
+      {/* Sidebar - Desktop & Mobile */}
+      <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e293b] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
+        {/* Sidebar Header - Fixed */}
+        <div className="flex items-center justify-between h-20 px-6 border-b border-gray-700/50 shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#4fd1c5] to-[#38a169] flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-inner">
                {user.instituteName.charAt(0).toUpperCase()}
@@ -124,25 +125,29 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
           </button>
         </div>
 
-        <nav className="mt-8 space-y-1">
-          {navItems.map(item => (
-            <SidebarItem 
-              key={item.id}
-              icon={item.icon}
-              label={item.label}
-              active={currentView === item.view || (item.id === 'DASHBOARD' && (currentView === 'DASHBOARD_OWNER' || currentView === 'DASHBOARD_TEACHER'))}
-              onClick={() => {
-                if (item.id === 'SUBSCRIPTION') {
-                    onNavigate('SUBSCRIPTION');
-                } else {
-                    onNavigate(item.view);
-                }
-                setIsMobileMenuOpen(false);
-              }}
-            />
-          ))}
+        {/* Scrollable Navigation Area */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth">
+          <nav className="py-6 space-y-1">
+            {navItems.map(item => (
+              <SidebarItem 
+                key={item.id}
+                icon={item.icon}
+                label={item.label}
+                active={currentView === item.view || (item.id === 'DASHBOARD' && (currentView === 'DASHBOARD_OWNER' || currentView === 'DASHBOARD_TEACHER'))}
+                onClick={() => {
+                  if (item.id === 'SUBSCRIPTION') {
+                      onNavigate('SUBSCRIPTION');
+                  } else {
+                      onNavigate(item.view);
+                  }
+                  setIsMobileMenuOpen(false);
+                }}
+              />
+            ))}
+          </nav>
           
-          <div className="pt-8 mt-8 border-t border-gray-700/50">
+          {/* Logout Section - Part of scroll if items are many, but at the end */}
+          <div className="py-6 border-t border-gray-700/50">
              <SidebarItem 
                icon={<LogOut size={20} />} 
                label={labels.logout} 
@@ -150,13 +155,20 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
                onClick={onLogout} 
              />
           </div>
-        </nav>
+        </div>
+
+        {/* Sidebar Footer - Optional Branding or Version */}
+        <div className="p-4 border-t border-gray-700/50 shrink-0">
+           <p className="text-[10px] text-gray-500 text-center font-bold tracking-widest uppercase">
+             Super Management v1.0
+           </p>
+        </div>
       </aside>
 
-      {/* Main Content */}
+      {/* Main Content Area */}
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen">
         {/* Header */}
-        <header className="h-20 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
+        <header className="h-20 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shrink-0">
            <div className="flex items-center gap-4">
              <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 p-2 hover:bg-gray-50 rounded-lg">
                <Menu size={24} />
@@ -198,6 +210,22 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
            {children}
         </main>
       </div>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: rgba(30, 41, 59, 0.5);
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: #4fd1c5;
+          border-radius: 2px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #38a169;
+        }
+      `}</style>
     </div>
   );
 };
