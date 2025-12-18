@@ -1,6 +1,8 @@
 
 /**
- * Airtable Integration Service Removed
- * The application now uses purely local and WhatsApp-based management for better reliability.
+ * Airtable Integration Service
+ * Removed as per user request.
  */
-export const syncToAirtable = async () => true;
+export const syncToAirtable = async (instituteName: string, mobileNumber: string) => {
+  return true;
+};
