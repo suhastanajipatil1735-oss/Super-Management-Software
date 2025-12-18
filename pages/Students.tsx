@@ -29,6 +29,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
   // Form State
   const [formData, setFormData] = useState<Partial<Student>>({
     classGrade: '1',
+    medium: 'Marathi',
     feesTotal: 0,
     feesPaid: 0
   });
@@ -43,7 +44,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
         const checkLimitAndOpen = async () => {
             const count = await db.students.where('ownerMobile').equals(dataOwnerMobile).count();
             if (count < user.studentLimit) {
-                setFormData({ classGrade: '1', feesTotal: 0, feesPaid: 0 });
+                setFormData({ classGrade: '1', medium: 'Marathi', feesTotal: 0, feesPaid: 0 });
                 setShowAddModal(true);
             } else {
                 alert(labels.limitReached);
@@ -68,7 +69,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
       onSubscriptionReq();
       return;
     }
-    setFormData({ classGrade: '1', feesTotal: 0, feesPaid: 0 });
+    setFormData({ classGrade: '1', medium: 'Marathi', feesTotal: 0, feesPaid: 0 });
     setShowAddModal(true);
   };
 
@@ -94,6 +95,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
       mobile: formData.mobile,
       rollNo: formData.rollNo || '',
       classGrade: formData.classGrade || '1',
+      medium: (formData.medium as any) || 'Marathi',
       address: formData.address || '',
       feesTotal: Number(formData.feesTotal),
       feesPaid: Number(formData.feesPaid),
@@ -101,7 +103,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
 
     await db.students.add(newStudent);
     setShowAddModal(false);
-    setFormData({ classGrade: '1', feesTotal: 0, feesPaid: 0 });
+    setFormData({ classGrade: '1', medium: 'Marathi', feesTotal: 0, feesPaid: 0 });
     loadStudents();
   };
 
@@ -121,6 +123,12 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
   };
 
   const dueAmount = calculateDueFees();
+
+  const mediumOptions = [
+    { value: 'Marathi', label: 'Marathi' },
+    { value: 'Semi-English', label: 'Semi-English' },
+    { value: 'English', label: 'English' }
+  ];
 
   return (
     <div className="p-4 max-w-5xl mx-auto animate-fade-in space-y-6">
@@ -173,9 +181,12 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
             <div className="flex justify-between items-start">
               <div className="space-y-1">
                 <h4 className="font-bold text-lg text-gray-800 leading-tight">{student.name}</h4>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                    <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-100">
                      Class {student.classGrade}
+                   </span>
+                   <span className="text-[10px] bg-teal-50 text-teal-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-teal-100">
+                     {student.medium}
                    </span>
                    <span className="text-gray-400 text-xs">Roll: {student.rollNo || 'N/A'}</span>
                 </div>
@@ -222,10 +233,19 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
             <Select 
               label="Class"
               value={formData.classGrade}
+              className="w-1/2"
               onChange={e => setFormData({...formData, classGrade: e.target.value})}
               options={Array.from({length: 12}, (_, i) => ({ value: (i+1).toString(), label: `Class ${i+1}` }))}
             />
           </div>
+          
+          <Select 
+            label="Medium"
+            value={formData.medium}
+            onChange={e => setFormData({...formData, medium: e.target.value as any})}
+            options={mediumOptions}
+          />
+
           <Input 
             placeholder="Mobile Number" 
             label="Mobile"

@@ -32,6 +32,7 @@ export interface Student {
   name: string;
   rollNo: string;
   classGrade: string; // 1-12
+  medium: 'Marathi' | 'Semi-English' | 'English'; // Educational Medium
   mobile: string;
   address: string;
   feesTotal: number;
