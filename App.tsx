@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Students from './pages/Students';
+import RemoveStudents from './pages/RemoveStudents';
 import Attendance from './pages/Attendance';
 import FeesReceipts from './pages/FeesReceipts';
 import ExamReports from './pages/ExamReports';
@@ -120,6 +121,7 @@ const App = () => {
     } else {
        if (view === 'ATTENDANCE_VIEW') setCurrentView('ATTENDANCE_VIEW');
        if (view === 'STUDENTS_VIEW') setCurrentView('STUDENTS_VIEW');
+       if (view === 'REMOVE_STUDENTS_VIEW') setCurrentView('REMOVE_STUDENTS_VIEW');
        if (view === 'FEES_VIEW') setCurrentView('FEES_VIEW');
        if (view === 'EXAMS_VIEW') setCurrentView('EXAMS_VIEW');
        if (view === 'DASHBOARD_OWNER') setCurrentView('DASHBOARD_OWNER');
@@ -163,6 +165,9 @@ const App = () => {
         break;
       case 'STUDENTS_VIEW':
         content = <Students user={currentUser} lang={lang} onBack={() => setCurrentView('DASHBOARD_OWNER')} onSubscriptionReq={() => setShowSubModal(true)} autoOpenAdd={autoOpenAddStudent} />;
+        break;
+      case 'REMOVE_STUDENTS_VIEW':
+        content = <RemoveStudents user={currentUser} lang={lang} onBack={() => setCurrentView('DASHBOARD_OWNER')} />;
         break;
       case 'ATTENDANCE_VIEW':
         content = <Attendance user={currentUser} lang={lang} onBack={() => setCurrentView('DASHBOARD_OWNER')} />;

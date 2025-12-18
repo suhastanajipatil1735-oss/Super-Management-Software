@@ -83,6 +83,7 @@ export type ViewState =
   | 'DASHBOARD_TEACHER'
   | 'ADMIN_PANEL'
   | 'STUDENTS_VIEW'
+  | 'REMOVE_STUDENTS_VIEW'
   | 'ATTENDANCE_VIEW'
   | 'FEES_VIEW'
   | 'EXAMS_VIEW'

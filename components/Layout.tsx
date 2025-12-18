@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UserProfile, ViewState } from '../types';
 import { 
   LayoutDashboard, Users, Calendar, Wallet, Settings, 
-  LogOut, Search, Menu, X, Crown, ClipboardList
+  LogOut, Search, Menu, X, Crown, ClipboardList, UserMinus
 } from 'lucide-react';
 import { LABELS } from '../constants';
 
@@ -44,6 +44,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
       case 'DASHBOARD_OWNER': return 'Dashboard';
       case 'DASHBOARD_TEACHER': return 'Dashboard';
       case 'STUDENTS_VIEW': return 'Students';
+      case 'REMOVE_STUDENTS_VIEW': return 'Remove Students';
       case 'ATTENDANCE_VIEW': return 'Attendance';
       case 'FEES_VIEW': return 'Fees & Receipts';
       case 'EXAMS_VIEW': return 'Exam Reports';
@@ -64,6 +65,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
       view: 'STUDENTS_VIEW', 
       icon: <Users size={20} />, 
       label: labels.students 
+    },
+    { 
+      id: 'REMOVE_STUDENTS', 
+      view: 'REMOVE_STUDENTS_VIEW', 
+      icon: <UserMinus size={20} />, 
+      label: 'Remove Students' 
     },
     { 
       id: 'ATTENDANCE', 
