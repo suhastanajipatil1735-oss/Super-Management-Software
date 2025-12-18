@@ -1,9 +1,11 @@
+
 export const ADMIN_CREDS = {
   NAME: 'suhaspatilsir',
   MOBILE: '9834252755'
 };
 
 export const FREE_STUDENT_LIMIT = 6;
+export const SUBSCRIPTION_PRICE = 4999;
 
 export const LABELS = {
   en: {
@@ -31,7 +33,7 @@ export const LABELS = {
     sendReminder: "Send Reminder",
     reminderSent: "Reminder Sent!",
     upgrade: "Upgrade Plan",
-    requestSent: "Request Sent - Wait for acceptance",
+    requestSent: "Subscription request sent, wait for request acceptance.",
     adminPanel: "Admin Panel",
     pendingRequests: "Pending Requests",
     accept: "Accept",

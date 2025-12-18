@@ -9,12 +9,12 @@ import ExamReports from './pages/ExamReports';
 import AdminPanel from './pages/AdminPanel';
 import Settings from './pages/Settings';
 import { Layout } from './components/Layout';
-import { UserProfile, ViewState } from './types';
+import { UserProfile, ViewState, SubscriptionRequest } from './types';
 import { db, seedDatabase } from './services/db';
-import { LABELS, ADMIN_CREDS } from './constants';
+import { LABELS, ADMIN_CREDS, SUBSCRIPTION_PRICE } from './constants';
 import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
-import { Crown, Loader2 } from 'lucide-react';
+import { Crown, Loader2, CheckCircle2, Clock } from 'lucide-react';
 
 const SESSION_KEY = 'super_mgmt_user_session';
 
@@ -26,16 +26,13 @@ const App = () => {
   const [showSubModal, setShowSubModal] = useState(false);
   const [isSubscriptionValid, setIsSubscriptionValid] = useState(false);
   const [autoOpenAddStudent, setAutoOpenAddStudent] = useState(false);
+  const [pendingRequest, setPendingRequest] = useState<SubscriptionRequest | null>(null);
 
   useEffect(() => {
     const initApp = async () => {
-      // Small delay for branding/splash feel
       await new Promise(resolve => setTimeout(resolve, 1200));
-      
       try { 
         await seedDatabase(); 
-        
-        // Check for existing session in localStorage
         const savedUserId = localStorage.getItem(SESSION_KEY);
         if (savedUserId) {
             const user = await db.users.get(savedUserId);
@@ -46,14 +43,12 @@ const App = () => {
                 } else {
                     setCurrentView('DASHBOARD_OWNER');
                 }
-                return; // Exit init, we found a user
+                return;
             }
         }
       } catch (e) {
         console.error("Initialization error", e);
       }
-      
-      // If no session or error, go to login
       setCurrentView('LOGIN');
     };
     initApp();
@@ -66,12 +61,19 @@ const App = () => {
     } else {
        setIsSubscriptionValid(false);
     }
+    
+    // Check for pending request whenever user or modal changes
+    if (currentUser) {
+        db.subscriptionRequests
+          .where('ownerMobile').equals(currentUser.mobile)
+          .and(r => r.status === 'pending')
+          .first()
+          .then(req => setPendingRequest(req || null));
+    }
   }, [currentUser, showSubModal]);
 
   const handleLogin = (user: UserProfile) => {
-    // Save session to localStorage
     localStorage.setItem(SESSION_KEY, user.id);
-    
     setCurrentUser(user);
     if (user.role === 'admin') {
       setCurrentView('ADMIN_PANEL');
@@ -85,11 +87,28 @@ const App = () => {
   };
 
   const handleLogout = () => {
-    // Clear session from localStorage
     localStorage.removeItem(SESSION_KEY);
-    
     setCurrentUser(null);
     setCurrentView('LOGIN');
+  };
+
+  const handleSendSubscriptionRequest = async () => {
+    if (!currentUser) return;
+    
+    const newRequest: SubscriptionRequest = {
+        id: Date.now(),
+        ownerMobile: currentUser.mobile,
+        instituteName: currentUser.instituteName,
+        monthsRequested: 999, // Lifetime
+        status: 'pending',
+        requestDate: new Date().toISOString()
+    };
+
+    await db.subscriptionRequests.add(newRequest);
+    setPendingRequest(newRequest);
+    
+    // Notify admin via WA (Optional but good for UX)
+    openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Amount: ₹${SUBSCRIPTION_PRICE}`);
   };
 
   const navigate = (view: string) => {
@@ -171,12 +190,51 @@ const App = () => {
   return (
     <div className="min-h-screen bg-[#eef2f5] text-[#2d3748]">
       {renderView()}
-      <Modal isOpen={showSubModal} onClose={() => setShowSubModal(false)} title={isSubscriptionValid ? "My Plan" : LABELS[lang].upgrade}>
+      <Modal 
+        isOpen={showSubModal} 
+        onClose={() => setShowSubModal(false)} 
+        title={isSubscriptionValid ? "My Plan" : "Upgrade to Premium"}
+      >
           <div className="p-4 text-center">
-              <Crown className="mx-auto text-yellow-500 mb-2" size={48} />
-              <h3 className="text-xl font-bold mb-2">Premium Features</h3>
-              <p className="text-gray-600 mb-4">Upgrade to add unlimited students and unlock all features.</p>
-              <Button className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Upgrade Request")}>Contact for Upgrade</Button>
+              {isSubscriptionValid ? (
+                  <div className="space-y-4">
+                      <CheckCircle2 className="mx-auto text-green-500" size={56} />
+                      <h3 className="text-xl font-bold">Premium Active</h3>
+                      <p className="text-gray-600">You have unlimited access to all features.</p>
+                      <div className="bg-green-50 p-3 rounded-lg text-sm text-green-700 font-medium">
+                          Expires: {new Date(currentUser?.subscription.endDate!).toLocaleDateString()}
+                      </div>
+                  </div>
+              ) : pendingRequest ? (
+                  <div className="space-y-4">
+                      <Clock className="mx-auto text-orange-500 animate-pulse" size={56} />
+                      <h3 className="text-xl font-bold text-orange-600">Request Pending</h3>
+                      <p className="text-gray-700 font-medium">{LABELS[lang].requestSent}</p>
+                      <p className="text-sm text-gray-500">Our team will verify your payment and activate your plan shortly.</p>
+                      <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending subscription")}>
+                          Contact Support
+                      </Button>
+                  </div>
+              ) : (
+                  <div className="space-y-4">
+                      <Crown className="mx-auto text-yellow-500" size={56} />
+                      <h3 className="text-2xl font-bold">Premium Plan</h3>
+                      <div className="text-3xl font-black text-[#1e293b]">₹{SUBSCRIPTION_PRICE}</div>
+                      <p className="text-sm text-gray-500 italic">One-time Lifetime Access</p>
+                      
+                      <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Student Entry</p>
+                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Professional Fees Receipts</p>
+                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Exam & Result Management</p>
+                          <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Attendance Reports</p>
+                      </div>
+
+                      <Button className="w-full h-12 text-lg bg-yellow-500 hover:bg-yellow-600 text-white" onClick={handleSendSubscriptionRequest}>
+                          Request Activation
+                      </Button>
+                      <p className="text-[10px] text-gray-400">By clicking, you send an activation request to admin.</p>
+                  </div>
+              )}
           </div>
       </Modal>
     </div>
