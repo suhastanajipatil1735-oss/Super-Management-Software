@@ -16,6 +16,8 @@ import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
 import { Crown, Loader2 } from 'lucide-react';
 
+const SESSION_KEY = 'super_mgmt_user_session';
+
 const App = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('SPLASH');
@@ -27,8 +29,31 @@ const App = () => {
 
   useEffect(() => {
     const initApp = async () => {
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      try { await seedDatabase(); } catch (e) {}
+      // Small delay for branding/splash feel
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      try { 
+        await seedDatabase(); 
+        
+        // Check for existing session in localStorage
+        const savedUserId = localStorage.getItem(SESSION_KEY);
+        if (savedUserId) {
+            const user = await db.users.get(savedUserId);
+            if (user) {
+                setCurrentUser(user);
+                if (user.role === 'admin') {
+                    setCurrentView('ADMIN_PANEL');
+                } else {
+                    setCurrentView('DASHBOARD_OWNER');
+                }
+                return; // Exit init, we found a user
+            }
+        }
+      } catch (e) {
+        console.error("Initialization error", e);
+      }
+      
+      // If no session or error, go to login
       setCurrentView('LOGIN');
     };
     initApp();
@@ -44,12 +69,12 @@ const App = () => {
   }, [currentUser, showSubModal]);
 
   const handleLogin = (user: UserProfile) => {
+    // Save session to localStorage
+    localStorage.setItem(SESSION_KEY, user.id);
+    
     setCurrentUser(user);
     if (user.role === 'admin') {
       setCurrentView('ADMIN_PANEL');
-    } else if (user.role === 'teacher') {
-      // Fix: Handle teacher login by setting teacher dashboard view
-      setCurrentView('DASHBOARD_TEACHER');
     } else {
       setCurrentView('DASHBOARD_OWNER');
     }
@@ -60,6 +85,9 @@ const App = () => {
   };
 
   const handleLogout = () => {
+    // Clear session from localStorage
+    localStorage.removeItem(SESSION_KEY);
+    
     setCurrentUser(null);
     setCurrentView('LOGIN');
   };
@@ -76,7 +104,6 @@ const App = () => {
        if (view === 'STUDENTS_VIEW') setCurrentView('STUDENTS_VIEW');
        if (view === 'FEES_VIEW') setCurrentView('FEES_VIEW');
        if (view === 'EXAMS_VIEW') setCurrentView('EXAMS_VIEW');
-       // Fix: Added support for navigating to owner and teacher dashboards
        if (view === 'DASHBOARD_OWNER') setCurrentView('DASHBOARD_OWNER');
        if (view === 'DASHBOARD_TEACHER') setCurrentView('DASHBOARD_TEACHER');
        if (view === 'SETTINGS_VIEW') setCurrentView('SETTINGS_VIEW');
@@ -88,10 +115,16 @@ const App = () => {
     if (currentView === 'SPLASH') {
         return (
           <div className="h-screen w-full flex flex-col items-center justify-center bg-[#f8fafc]">
-            <h1 className="text-4xl font-bold text-[#1e293b] mb-4">Super Management</h1>
-            <div className="flex flex-col items-center gap-3">
-                <Loader2 className="animate-spin text-teal-600" size={40} />
-                <p className="text-gray-500 font-medium">Initializing...</p>
+            <div className="relative">
+                <div className="w-20 h-20 rounded-2xl bg-[#1e293b] flex items-center justify-center text-white text-4xl font-bold shadow-xl animate-bounce">
+                    S
+                </div>
+                <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-teal-500 rounded-full border-4 border-white"></div>
+            </div>
+            <h1 className="text-3xl font-bold text-[#1e293b] mt-6 tracking-tight">Super Management</h1>
+            <div className="flex flex-col items-center mt-8 gap-3">
+                <Loader2 className="animate-spin text-teal-600" size={32} />
+                <p className="text-gray-400 font-medium text-sm">Checking session...</p>
             </div>
           </div>
         );
@@ -107,7 +140,7 @@ const App = () => {
     let content;
     switch (currentView) {
       case 'DASHBOARD_OWNER':
-      case 'DASHBOARD_TEACHER': // Fix: Render dashboard for both owners and teachers
+      case 'DASHBOARD_TEACHER': 
         content = <Dashboard user={currentUser} lang={lang} onNavigate={navigate} onUpdateUser={handleUserUpdate} />;
         break;
       case 'STUDENTS_VIEW':
