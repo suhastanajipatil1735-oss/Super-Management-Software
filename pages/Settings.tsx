@@ -4,7 +4,7 @@ import { UserProfile } from '../types';
 import { db } from '../services/db';
 import { Card, Button, Input } from '../components/UI';
 import { LABELS } from '../constants';
-import { ArrowLeft, Edit2, Save, Mail, MapPin, Phone, Crown, Shield } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, Mail, MapPin, Phone, Crown, Infinity as InfinityIcon, ShieldCheck } from 'lucide-react';
 
 interface SettingsProps {
   user: UserProfile;
@@ -69,7 +69,7 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                  </div>
                  <div>
                      <h3 className="font-bold text-lg text-gray-800">Profile Details</h3>
-                     <p className="text-xs text-gray-500">Manage your account info</p>
+                     <p className="text-xs text-gray-500">Manage your academy info</p>
                  </div>
             </div>
             {!isEditing && (
@@ -81,7 +81,7 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
 
           <div className="space-y-5">
               <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Institute / Academy Name</label>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Academy Name</label>
                   {isEditing ? (
                       <Input 
                           value={formData.instituteName} 
@@ -96,29 +96,31 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                   )}
               </div>
 
-              <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
-                  <div className="flex items-center gap-2 text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
-                      <Phone size={16} className="text-gray-400" />
-                      <span className="font-mono">{user.mobile}</span>
-                  </div>
-              </div>
-
-              <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
-                  {isEditing ? (
-                      <Input 
-                          type="email"
-                          value={formData.email} 
-                          onChange={e => setFormData({...formData, email: e.target.value})}
-                          placeholder="Enter Email Address"
-                      />
-                  ) : (
-                      <div className="flex items-center gap-2 text-gray-700">
-                          <Mail size={18} className="text-gray-400" />
-                          {user.email || <span className="text-gray-400 italic">Not set</span>}
-                      </div>
-                  )}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Mobile</label>
+                    <div className="flex items-center gap-2 text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                        <Phone size={14} className="text-gray-400" />
+                        <span className="font-mono text-sm">{user.mobile}</span>
+                    </div>
+                </div>
+                <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
+                    {isEditing ? (
+                        <Input 
+                            type="email"
+                            value={formData.email} 
+                            onChange={e => setFormData({...formData, email: e.target.value})}
+                            placeholder="Email Address"
+                            className="h-9"
+                        />
+                    ) : (
+                        <div className="flex items-center gap-2 text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                            <Mail size={14} className="text-gray-400" />
+                            <span className="text-sm truncate">{user.email || 'Not set'}</span>
+                        </div>
+                    )}
+                </div>
               </div>
 
               <div>
@@ -127,12 +129,12 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                       <Input 
                           value={formData.address} 
                           onChange={e => setFormData({...formData, address: e.target.value})}
-                          placeholder="Enter Address"
+                          placeholder="Full Address"
                       />
                   ) : (
-                      <div className="flex items-center gap-2 text-gray-700">
-                          <MapPin size={18} className="text-gray-400" />
-                          {user.address || <span className="text-gray-400 italic">Not set</span>}
+                      <div className="flex items-center gap-2 text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
+                          <MapPin size={14} className="text-gray-400" />
+                          <span className="text-sm">{user.address || 'Not set'}</span>
                       </div>
                   )}
               </div>
@@ -140,8 +142,8 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
 
           {isEditing && (
               <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100 animate-fade-in">
-                  <Button variant="secondary" onClick={handleCancel}>Cancel</Button>
-                  <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
+                  <Button variant="secondary" size="sm" onClick={handleCancel}>Cancel</Button>
+                  <Button size="sm" onClick={handleSave} className="bg-green-600 hover:bg-green-700">
                       <Save size={18} /> Save Changes
                   </Button>
               </div>
@@ -149,15 +151,20 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
         </Card>
 
         <Card>
-          <div className="flex items-center gap-4 mb-4">
-             <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
-               {user.subscription.planType === 'lifetime' ? <Crown size={24} /> : <Shield size={24} />}
+          <div className="flex items-center gap-4">
+             <div className={`p-4 rounded-2xl flex items-center justify-center ${user.plan === 'subscribed' ? 'bg-purple-100 text-purple-600' : 'bg-gray-100 text-gray-400'}`}>
+               {user.plan === 'subscribed' ? <InfinityIcon size={32} /> : <ShieldCheck size={32} />}
             </div>
             <div>
               <h3 className="font-bold text-lg">Subscription Plan</h3>
-              <p className={`${user.plan === 'subscribed' ? 'text-green-600' : 'text-gray-500'} font-semibold`}>
-                {user.plan === 'subscribed' ? 'Premium Plan Active' : 'Free Plan'}
-              </p>
+              <div className="flex items-center gap-2">
+                  <p className={`${user.plan === 'subscribed' ? 'text-purple-700' : 'text-gray-500'} font-bold flex items-center gap-1`}>
+                    {user.plan === 'subscribed' ? <><Crown size={14} /> Lifetime Premium</> : 'Free Plan'}
+                  </p>
+                  {user.plan === 'subscribed' && (
+                      <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-black uppercase">Active Forever</span>
+                  )}
+              </div>
             </div>
           </div>
         </Card>

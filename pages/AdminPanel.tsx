@@ -13,7 +13,7 @@ import {
 type AdminTab = 'ALL_USERS' | 'REQUESTS' | 'SUBSCRIBERS';
 
 const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
-  const [activeTab, setActiveTab] = useState<AdminTab>('REQUESTS'); // Default to requests for admin
+  const [activeTab, setActiveTab] = useState<AdminTab>('REQUESTS'); 
   const [requests, setRequests] = useState<SubscriptionRequest[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,25 +60,20 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       if (user) {
         const startDate = new Date();
         const endDate = new Date(startDate);
-        const isLifetime = req.monthsRequested === 999;
-        
-        if (isLifetime) {
-            endDate.setFullYear(endDate.getFullYear() + 100);
-        } else {
-            endDate.setMonth(endDate.getMonth() + req.monthsRequested);
-        }
+        // Always lifetime for this model
+        endDate.setFullYear(endDate.getFullYear() + 100);
 
         await db.users.update(user.id, {
           plan: 'subscribed',
-          studentLimit: isLifetime ? 99999 : 1000,
+          studentLimit: 99999,
           subscription: {
             active: true,
             startDate: startDate.toISOString(),
             endDate: endDate.toISOString(),
-            planType: isLifetime ? 'lifetime' : (req.monthsRequested === 12 ? '12_months' : '1_month')
+            planType: 'lifetime'
           }
         });
-        openWhatsApp(user.mobile, `Congratulations! Your subscription for ${user.instituteName} has been ACTIVATED. You now have lifetime premium access.`);
+        openWhatsApp(user.mobile, `Congratulations! Your subscription for ${user.instituteName} has been ACTIVATED. You now have lifetime premium access with unlimited students.`);
       }
     }
     refreshData();
@@ -147,7 +142,7 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
       <main className="max-w-7xl mx-auto px-4 py-8 space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
-                <p className="text-xs text-gray-500 uppercase font-bold">Total Institutes</p>
+                <p className="text-xs text-gray-500 uppercase font-bold">Institutes</p>
                 <h3 className="text-2xl font-bold text-gray-800">{stats.totalInstitutes}</h3>
             </div>
             <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm">
@@ -170,7 +165,7 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                     Requests ({stats.pendingRequests})
                 </button>
                 <button onClick={() => setActiveTab('ALL_USERS')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'ALL_USERS' ? 'bg-[#1e293b] text-white' : 'text-gray-500'}`}>
-                    All Institutes
+                    All
                 </button>
                 <button onClick={() => setActiveTab('SUBSCRIBERS')} className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${activeTab === 'SUBSCRIBERS' ? 'bg-purple-600 text-white' : 'text-gray-500'}`}>
                     Premium
@@ -185,7 +180,7 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px]">
             {activeTab === 'REQUESTS' && (
                 <div className="p-6">
-                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2"><Clock size={20} className="text-orange-500"/> Subscription Requests Details</h2>
+                    <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-orange-600"><Clock size={20}/> New Lifetime Activation Requests</h2>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {requests.filter(r => r.status === 'pending').map(req => (
                             <div key={req.id} className="border border-orange-100 rounded-xl p-5 bg-orange-50/20 shadow-sm">
@@ -202,22 +197,21 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                                         <span className="font-bold text-gray-700">Lifetime Premium</span>
                                     </div>
                                     <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Amount:</span>
+                                        <span>Price:</span>
                                         <span className="font-bold text-gray-900">₹4,999</span>
-                                    </div>
-                                    <div className="flex justify-between text-xs text-gray-500">
-                                        <span>Date:</span>
-                                        <span className="font-bold text-gray-700">{new Date(req.requestDate).toLocaleDateString()}</span>
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button size="sm" onClick={() => handleSubscriptionAction(req, 'accepted')} className="bg-green-600 hover:bg-green-700 flex-1">Accept</Button>
+                                    <Button size="sm" onClick={() => handleSubscriptionAction(req, 'accepted')} className="bg-green-600 hover:bg-green-700 flex-1 font-bold">APPROVE</Button>
                                     <Button size="sm" variant="secondary" onClick={() => handleSubscriptionAction(req, 'declined')} className="text-red-500 flex-1">Decline</Button>
                                 </div>
                             </div>
                         ))}
                         {requests.filter(r => r.status === 'pending').length === 0 && (
-                            <div className="col-span-full py-20 text-center text-gray-400">No pending requests found.</div>
+                            <div className="col-span-full py-20 text-center text-gray-400 flex flex-col items-center gap-2">
+                                <ShieldCheck size={48} className="opacity-20" />
+                                <p>No new requests pending.</p>
+                            </div>
                         )}
                     </div>
                 </div>
@@ -231,7 +225,6 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                                 <th className="py-4 px-6">Institute</th>
                                 <th className="py-4 px-6">Mobile</th>
                                 <th className="py-4 px-6">Plan Status</th>
-                                <th className="py-4 px-6">Joined</th>
                                 <th className="py-4 px-6 text-right">Action</th>
                             </tr>
                         </thead>
@@ -242,14 +235,13 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                                     <td className="py-4 px-6 font-mono text-gray-600">{user.mobile}</td>
                                     <td className="py-4 px-6">
                                         {user.plan === 'subscribed' ? (
-                                            <span className={`px-2 py-1 rounded-full text-xs font-bold ${user.subscription.active ? 'bg-purple-100 text-purple-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                                                PREMIUM {user.subscription.active ? 'ACTIVE' : 'PAUSED'}
-                                            </span>
+                                            <div className="flex items-center gap-1.5 text-purple-700 font-bold bg-purple-50 px-2 py-1 rounded-md w-fit text-[10px]">
+                                                <InfinityIcon size={12} /> PREMIUM {user.subscription.active ? 'ACTIVE' : 'PAUSED'}
+                                            </div>
                                         ) : <span className="px-2 py-1 rounded-full text-xs font-bold bg-gray-100 text-gray-500">FREE</span>}
                                     </td>
-                                    <td className="py-4 px-6 text-gray-500">{new Date(user.createdAt).toLocaleDateString()}</td>
                                     <td className="py-4 px-6 text-right">
-                                        <Button size="sm" variant="secondary" onClick={() => handleViewProfile(user.mobile)}><Eye size={16}/> View</Button>
+                                        <Button size="sm" variant="secondary" onClick={() => handleViewProfile(user.mobile)} className="h-8"><Eye size={14}/> View</Button>
                                     </td>
                                 </tr>
                             ))}
@@ -277,20 +269,22 @@ const AdminPanel: React.FC<{ onLogout: () => void }> = ({ onLogout }) => {
                     </div>
                     <div className="p-3 bg-purple-50 rounded-lg border border-purple-100">
                          <p className="text-xs text-purple-600 font-bold uppercase">Plan</p>
-                         <p className="text-sm font-bold text-gray-800 capitalize">{selectedProfile.plan === 'subscribed' ? 'Premium' : 'Free'}</p>
+                         <p className="text-sm font-bold text-gray-800 capitalize flex items-center gap-1">
+                            {selectedProfile.plan === 'subscribed' ? <><InfinityIcon size={14}/> Lifetime</> : 'Free'}
+                         </p>
                     </div>
                 </div>
                 {selectedProfile.plan === 'subscribed' && (
                     <div className="bg-gray-50 p-4 rounded-xl border border-gray-200">
                         <h4 className="font-bold text-gray-700 mb-3 flex items-center gap-2"><Crown size={16} className="text-yellow-600" /> Controls</h4>
                         <div className="flex gap-2">
-                            <Button size="sm" onClick={handleTogglePause} className={selectedProfile.subscription.active ? "bg-yellow-500" : "bg-green-600"}>
-                                {selectedProfile.subscription.active ? 'Pause Subscription' : 'Resume Subscription'}
+                            <Button size="sm" onClick={handleTogglePause} className={selectedProfile.subscription.active ? "bg-yellow-500 flex-1" : "bg-green-600 flex-1"}>
+                                {selectedProfile.subscription.active ? 'Pause Access' : 'Resume Access'}
                             </Button>
                         </div>
                     </div>
                 )}
-                <Button onClick={handleDeleteUser} className="w-full bg-red-600 hover:bg-red-700 text-white"><Trash2 size={18} /> Delete Institute Data</Button>
+                <Button onClick={handleDeleteUser} className="w-full bg-red-50 text-red-600 border border-red-100 hover:bg-red-600 hover:text-white"><Trash2 size={18} /> Permanently Delete Data</Button>
             </div>
         )}
       </Modal>

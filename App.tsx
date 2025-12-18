@@ -14,7 +14,7 @@ import { db, seedDatabase } from './services/db';
 import { LABELS, ADMIN_CREDS, SUBSCRIPTION_PRICE } from './constants';
 import { openWhatsApp } from './services/whatsapp';
 import { Modal, Button } from './components/UI';
-import { Crown, Loader2, CheckCircle2, Clock } from 'lucide-react';
+import { Crown, Loader2, CheckCircle2, Clock, Infinity as InfinityIcon } from 'lucide-react';
 
 const SESSION_KEY = 'super_mgmt_user_session';
 
@@ -55,9 +55,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
-    if (currentUser && currentUser.subscription.active && currentUser.subscription.endDate) {
-       const isValid = new Date(currentUser.subscription.endDate) > new Date();
-       setIsSubscriptionValid(isValid);
+    if (currentUser && currentUser.plan === 'subscribed' && currentUser.subscription.active) {
+       // For lifetime, we just check if it's active
+       setIsSubscriptionValid(true);
     } else {
        setIsSubscriptionValid(false);
     }
@@ -99,7 +99,7 @@ const App = () => {
         id: Date.now(),
         ownerMobile: currentUser.mobile,
         instituteName: currentUser.instituteName,
-        monthsRequested: 999, // Lifetime
+        monthsRequested: 999, // Lifetime indicator
         status: 'pending',
         requestDate: new Date().toISOString()
     };
@@ -107,7 +107,6 @@ const App = () => {
     await db.subscriptionRequests.add(newRequest);
     setPendingRequest(newRequest);
     
-    // Notify admin via WA (Optional but good for UX)
     openWhatsApp(ADMIN_CREDS.MOBILE, `New Subscription Request for ${currentUser.instituteName} (${currentUser.mobile}). Amount: ₹${SUBSCRIPTION_PRICE}`);
   };
 
@@ -197,12 +196,14 @@ const App = () => {
       >
           <div className="p-4 text-center">
               {isSubscriptionValid ? (
-                  <div className="space-y-4">
-                      <CheckCircle2 className="mx-auto text-green-500" size={56} />
-                      <h3 className="text-xl font-bold">Premium Active</h3>
-                      <p className="text-gray-600">You have unlimited access to all features.</p>
-                      <div className="bg-green-50 p-3 rounded-lg text-sm text-green-700 font-medium">
-                          Expires: {new Date(currentUser?.subscription.endDate!).toLocaleDateString()}
+                  <div className="space-y-4 animate-fade-in">
+                      <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                        <InfinityIcon size={48} />
+                      </div>
+                      <h3 className="text-2xl font-bold text-gray-800">Lifetime Premium</h3>
+                      <p className="text-gray-500">Your account has full permanent access. No renewal required!</p>
+                      <div className="bg-green-50 p-4 rounded-xl border border-green-100 inline-flex items-center gap-2 text-green-700 font-bold">
+                          <CheckCircle2 size={18} /> Plan Active Forever
                       </div>
                   </div>
               ) : pendingRequest ? (
@@ -210,8 +211,8 @@ const App = () => {
                       <Clock className="mx-auto text-orange-500 animate-pulse" size={56} />
                       <h3 className="text-xl font-bold text-orange-600">Request Pending</h3>
                       <p className="text-gray-700 font-medium">{LABELS[lang].requestSent}</p>
-                      <p className="text-sm text-gray-500">Our team will verify your payment and activate your plan shortly.</p>
-                      <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending subscription")}>
+                      <p className="text-sm text-gray-500">Admin is verifying your payment for Lifetime Access.</p>
+                      <Button variant="secondary" className="w-full" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Enquiry about my pending lifetime subscription")}>
                           Contact Support
                       </Button>
                   </div>
@@ -220,19 +221,21 @@ const App = () => {
                       <Crown className="mx-auto text-yellow-500" size={56} />
                       <h3 className="text-2xl font-bold">Premium Plan</h3>
                       <div className="text-3xl font-black text-[#1e293b]">₹{SUBSCRIPTION_PRICE}</div>
-                      <p className="text-sm text-gray-500 italic">One-time Lifetime Access</p>
+                      <div className="flex items-center justify-center gap-1 text-teal-600 font-bold bg-teal-50 py-1 px-3 rounded-full w-fit mx-auto text-sm">
+                         <InfinityIcon size={16} /> Lifetime Access
+                      </div>
                       
-                      <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100">
+                      <div className="text-left space-y-2 bg-gray-50 p-4 rounded-xl border border-gray-100 mt-4">
                           <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Unlimited Student Entry</p>
                           <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Professional Fees Receipts</p>
                           <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Exam & Result Management</p>
                           <p className="flex items-center gap-2 text-sm"><CheckCircle2 size={14} className="text-green-500" /> Attendance Reports</p>
                       </div>
 
-                      <Button className="w-full h-12 text-lg bg-yellow-500 hover:bg-yellow-600 text-white" onClick={handleSendSubscriptionRequest}>
+                      <Button className="w-full h-12 text-lg bg-[#1e293b] hover:bg-black text-white mt-4" onClick={handleSendSubscriptionRequest}>
                           Request Activation
                       </Button>
-                      <p className="text-[10px] text-gray-400">By clicking, you send an activation request to admin.</p>
+                      <p className="text-[10px] text-gray-400">One-time payment. No hidden charges.</p>
                   </div>
               )}
           </div>
