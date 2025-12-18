@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { UserProfile, ViewState } from '../types';
 import { 
@@ -103,13 +104,15 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
       {/* Sidebar - Desktop */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e293b] transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
         <div className="flex items-center justify-between h-20 px-6 border-b border-gray-700/50">
-          <div className="flex items-center gap-3">
-             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#4fd1c5] to-[#38a169] flex items-center justify-center text-white font-bold text-xl">
-               S
+          <div className="flex items-center gap-3 overflow-hidden">
+             <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#4fd1c5] to-[#38a169] flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-inner">
+               {user.instituteName.charAt(0).toUpperCase()}
              </div>
-             <h1 className="text-xl font-bold text-white tracking-wide">SCHOOL</h1>
+             <h1 className="text-sm font-bold text-white tracking-wide truncate uppercase leading-tight">
+               {user.instituteName}
+             </h1>
           </div>
-          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400">
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden text-gray-400 p-1 hover:text-white transition-colors">
             <X size={24} />
           </button>
         </div>
@@ -148,14 +151,14 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
         {/* Header */}
         <header className="h-20 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40">
            <div className="flex items-center gap-4">
-             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600">
+             <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 p-2 hover:bg-gray-50 rounded-lg">
                <Menu size={24} />
              </button>
              <h2 className="text-2xl font-bold text-[#1e293b] hidden md:block">{getViewName(currentView)}</h2>
            </div>
 
            <div className="flex items-center gap-6">
-              <div className="hidden md:flex items-center bg-[#f8fafc] px-4 py-2 rounded-full border border-gray-100 w-80">
+              <div className="hidden md:flex items-center bg-[#f8fafc] px-4 py-2 rounded-full border border-gray-100 w-80 focus-within:ring-2 focus-within:ring-teal-100 transition-all">
                  <Search size={18} className="text-gray-400" />
                  <input 
                    type="text" 
@@ -172,7 +175,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
                     title="View Profile Settings"
                  >
                     <div className="text-right hidden md:block">
-                       <p className="text-sm font-bold text-[#1e293b]">{user.instituteName}</p>
+                       <p className="text-sm font-bold text-[#1e293b] group-hover:text-teal-600 transition-colors">{user.instituteName}</p>
                        <p className="text-xs text-gray-500 capitalize">{user.role}</p>
                     </div>
                     <div className="w-10 h-10 rounded-full bg-[#1e293b] text-white flex items-center justify-center font-bold text-lg border-2 border-gray-100 shadow-sm transform transition-transform group-hover:scale-105">
