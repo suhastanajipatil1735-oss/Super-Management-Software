@@ -4,7 +4,7 @@ import { Card, Button, Input } from '../components/UI';
 import { ADMIN_CREDS, LABELS } from '../constants';
 import { db } from '../services/db';
 import { UserProfile } from '../types';
-import { syncToGoogleSheet } from '../services/googleSheets';
+import { syncUserToSupabase } from '../services/supabase';
 
 interface LoginProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -60,13 +60,9 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
          user = { ...user, instituteName: details.name };
       }
 
-      // 3. Sync to Google Sheets in background
-      syncToGoogleSheet({
-        instituteName: user.instituteName,
-        mobile: user.mobile,
-        status: user.plan,
-        requestSent: false
-      }).catch(err => console.warn("Initial sheet sync failed", err));
+      // 3. Sync to Supabase in background
+      syncUserToSupabase(user.mobile, user.instituteName, user.plan)
+        .catch(err => console.warn("Supabase initial sync failed", err));
       
       onLoginSuccess(user);
     } catch (err) {
@@ -83,12 +79,15 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
         <div className="text-center">
           <div className="w-16 h-16 bg-[#1e293b] text-white rounded-2xl flex items-center justify-center text-3xl font-bold mx-auto mb-4 shadow-xl">S</div>
           <h1 className="text-4xl font-bold text-[#2d3748] tracking-tight">Super Management</h1>
-          <p className="text-gray-500 mt-2">{labels.welcome}</p>
+          <p className="text-gray-500 mt-2 text-sm">{labels.welcome}</p>
         </div>
 
         <Card>
           <div className="space-y-6">
-             <h2 className="text-xl font-semibold text-gray-700">{labels.loginTitle}</h2>
+             <div className="flex justify-between items-center">
+                <h2 className="text-xl font-bold text-gray-700">{labels.loginTitle}</h2>
+                <div className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold uppercase">Supabase Cloud</div>
+             </div>
              <Input 
                label={labels.instName} 
                placeholder="Ex. Wisdom Academy" 
@@ -105,11 +104,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
                maxLength={10}
                disabled={isLoggingIn}
              />
-             <Button className="w-full h-12 text-lg" onClick={handleLogin} disabled={isLoggingIn}>
+             <Button className="w-full h-12 text-lg font-bold" onClick={handleLogin} disabled={isLoggingIn}>
                {isLoggingIn ? (
                  <span className="flex items-center gap-2">
                    <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                   Syncing with Cloud...
+                   Secure Connection...
                  </span>
                ) : labels.sendCode}
              </Button>
@@ -117,7 +116,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
         </Card>
         
         <div className="text-center">
-          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">Safe & Secure Cloud Management</p>
+          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">Powered by Google AI Studio & Supabase</p>
         </div>
       </div>
     </div>
