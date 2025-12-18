@@ -2,10 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { UserProfile, Student } from '../types';
 import { db } from '../services/db';
-import { Card, Button, Modal, Input } from '../components/UI';
-import { LABELS, THEME, ADMIN_CREDS } from '../constants';
-import { Users, IndianRupee, Clock, Plus, MoreHorizontal, MessageCircleQuestion, Key, GraduationCap, Briefcase, Share2, Copy } from 'lucide-react';
-import { formatCurrency, openWhatsApp, generateTeacherAccessLink } from '../services/whatsapp';
+import { Button } from '../components/UI';
+import { LABELS, ADMIN_CREDS } from '../constants';
+import { IndianRupee, Clock, MessageCircleQuestion, GraduationCap } from 'lucide-react';
+import { openWhatsApp } from '../services/whatsapp';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 
 interface DashboardProps {
@@ -32,49 +32,17 @@ const StatCard: React.FC<{
   </div>
 );
 
-const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateUser }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, lang }) => {
   const [students, setStudents] = useState<Student[]>([]);
-  const [teacherCount, setTeacherCount] = useState(0);
-  const [showCodeModal, setShowCodeModal] = useState(false);
-  const [teacherCode, setTeacherCode] = useState('');
-  
   const labels = LABELS[lang];
-  const isOwner = user.role === 'owner';
-  const dataOwnerMobile = isOwner ? user.mobile : user.linkedOwnerMobile;
-
-  useEffect(() => {
-    setTeacherCode(user.teacherCode || '');
-  }, [user.teacherCode]);
 
   useEffect(() => {
     const loadData = async () => {
-      if (dataOwnerMobile) {
-        const studData = await db.students.where('ownerMobile').equals(dataOwnerMobile).toArray();
-        setStudents(studData);
-        
-        if (isOwner) {
-            const teachers = await db.users.where('linkedOwnerMobile').equals(user.mobile).count();
-            setTeacherCount(teachers);
-        }
-      }
+      const studData = await db.students.where('ownerMobile').equals(user.mobile).toArray();
+      setStudents(studData);
     };
     loadData();
-  }, [dataOwnerMobile, isOwner, user.mobile]);
-
-  const handleSaveCode = async () => {
-      if (!teacherCode) return alert("Code cannot be empty");
-      await db.users.update(user.id, { teacherCode });
-      const updatedUser = { ...user, teacherCode };
-      onUpdateUser(updatedUser);
-      setShowCodeModal(false);
-  };
-
-  const handleShareAccess = () => {
-      if (!user.teacherCode) return alert("Please set a teacher code first!");
-      const link = generateTeacherAccessLink(user.mobile, user.instituteName, user.teacherCode);
-      const msg = `*Teacher Access Invitation*\n\nAcademy: *${user.instituteName}*\nLogin Code: *${user.teacherCode}*\n\nClick this link to join on your mobile:\n${link}`;
-      openWhatsApp('', msg); // Opens WA to choose contact
-  };
+  }, [user.mobile]);
 
   const totalFees = students.reduce((acc, s) => acc + s.feesTotal, 0);
   const collectedFees = students.reduce((acc, s) => acc + s.feesPaid, 0);
@@ -93,67 +61,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap justify-end gap-3 mb-2">
-         {isOwner && (
-            <>
-            <Button 
-                size="sm" 
-                variant="secondary" 
-                onClick={() => setShowCodeModal(true)} 
-                className="bg-white border-none shadow-sm text-yellow-600 hover:bg-yellow-50 font-semibold"
-            >
-                <Key size={16} /> 
-                {user.teacherCode ? `Code: ${user.teacherCode}` : "Set Teacher Code"}
-            </Button>
-            {user.teacherCode && (
-                <Button 
-                    size="sm" 
-                    variant="secondary" 
-                    onClick={handleShareAccess} 
-                    className="bg-[#4fd1c5]/10 border-none shadow-sm text-[#319795] hover:bg-[#4fd1c5]/20 font-bold"
-                >
-                    <Share2 size={16} /> Share Link to Teacher
-                </Button>
-            )}
-            </>
-         )}
-         <Button size="sm" variant="secondary" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Hi")} className="bg-white border-none shadow-sm text-blue-600 hover:bg-blue-50">
-             <MessageCircleQuestion size={16} /> Help
+         <Button size="sm" variant="secondary" onClick={() => openWhatsApp(ADMIN_CREDS.MOBILE, "Hi")} className="bg-white border-none shadow-sm text-blue-600 hover:bg-blue-50 font-bold">
+             <MessageCircleQuestion size={16} /> Help & Support
          </Button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <StatCard 
             title={labels.totalStudents} 
             value={students.length} 
             icon={<GraduationCap size={28} />} 
             colorClass="bg-blue-100 text-blue-600"
         />
-        {isOwner && (
-          <>
-            <StatCard 
-                title="Teachers" 
-                value={teacherCount} 
-                icon={<Briefcase size={24} />} 
-                colorClass="bg-pink-100 text-pink-500"
-            />
-            <StatCard 
-                title={labels.feesCollected} 
-                value={'₹' + (collectedFees / 1000).toFixed(1) + 'k'} 
-                icon={<IndianRupee size={24} />} 
-                colorClass="bg-orange-100 text-orange-500"
-            />
-            <StatCard 
-                title={labels.feesDue} 
-                value={'₹' + (dueFees / 1000).toFixed(1) + 'k'} 
-                icon={<Clock size={24} />} 
-                colorClass="bg-teal-100 text-teal-600"
-            />
-          </>
-        )}
+        <StatCard 
+            title={labels.feesCollected} 
+            value={'₹' + (collectedFees / 1000).toFixed(1) + 'k'} 
+            icon={<IndianRupee size={24} />} 
+            colorClass="bg-orange-100 text-orange-500"
+        />
+        <StatCard 
+            title={labels.feesDue} 
+            value={'₹' + (dueFees / 1000).toFixed(1) + 'k'} 
+            icon={<Clock size={24} />} 
+            colorClass="bg-teal-100 text-teal-600"
+        />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {isOwner && (
         <div className="lg:col-span-2 space-y-6">
             <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-6">
@@ -179,13 +113,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
                 </div>
             </div>
         </div>
-        )}
 
-        <div className={isOwner ? "space-y-6" : "lg:col-span-3 space-y-6"}>
-            <div className={`bg-white p-6 rounded-xl shadow-sm border border-gray-100 ${!isOwner ? 'max-w-xl' : ''}`}>
+        <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
                 <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-lg text-gray-800">Attendance</h3>
-                    <MoreHorizontal size={20} className="text-gray-400" />
+                    <h3 className="font-bold text-lg text-gray-800">Today's Attendance</h3>
                 </div>
                 <div className="h-[200px] w-full relative flex items-center justify-center">
                      <ResponsiveContainer width="100%" height="100%">
@@ -213,23 +145,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, lang, onNavigate, onUpdateU
             </div>
         </div>
       </div>
-
-      <Modal isOpen={showCodeModal} onClose={() => setShowCodeModal(false)} title="Teacher Access Code">
-          <div className="space-y-4">
-              <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100 mb-2">
-                  <p className="text-sm text-yellow-800 font-bold mb-1">Current Code</p>
-                  <p className="text-2xl font-mono text-gray-800">{teacherCode || 'Not Set'}</p>
-              </div>
-              <p className="text-gray-600 text-sm">Set a code for your teachers. They will need this code to login on their mobile.</p>
-              <Input 
-                  label="Enter New Code"
-                  value={teacherCode}
-                  onChange={(e) => setTeacherCode(e.target.value)}
-                  placeholder="Ex. 1234"
-              />
-              <Button onClick={handleSaveCode} className="w-full">Update Code</Button>
-          </div>
-      </Modal>
     </div>
   );
 };

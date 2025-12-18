@@ -13,60 +13,24 @@ import { UserProfile, ViewState } from './types';
 import { db, seedDatabase } from './services/db';
 import { LABELS, ADMIN_CREDS } from './constants';
 import { openWhatsApp } from './services/whatsapp';
-import { Modal, Button, Card } from './components/UI';
-import { Clock, AlertTriangle, CheckCircle, Crown, Infinity as InfinityIcon, Loader2 } from 'lucide-react';
+import { Modal, Button } from './components/UI';
+import { Crown, Loader2 } from 'lucide-react';
 
 const App = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [currentView, setCurrentView] = useState<ViewState>('SPLASH');
   const [lang] = useState<'en'>('en');
-  const [isSyncing, setIsSyncing] = useState(false);
   
-  const [loginStep, setLoginStep] = useState<'DETAILS' | 'ROLE'>('DETAILS');
-  const [cachedDetails, setCachedDetails] = useState<{name: string, mobile: string}>({name: '', mobile: ''});
   const [showSubModal, setShowSubModal] = useState(false);
   const [isSubscriptionValid, setIsSubscriptionValid] = useState(false);
   const [autoOpenAddStudent, setAutoOpenAddStudent] = useState(false);
 
   useEffect(() => {
     const initApp = async () => {
-      // 1. Check for Sync Link
-      const params = new URLSearchParams(window.location.search);
-      if (params.get('action') === 'join') {
-          setIsSyncing(true);
-          try {
-              const ownerMobile = atob(params.get('om') || '');
-              const instName = atob(params.get('in') || '');
-              const teacherCode = atob(params.get('tc') || '');
-
-              if (ownerMobile && instName && teacherCode) {
-                  // Add owner record to local DB so teacher can verify code
-                  await db.users.put({
-                      id: ownerMobile,
-                      mobile: ownerMobile,
-                      instituteName: instName,
-                      teacherCode: teacherCode,
-                      role: 'owner',
-                      plan: 'subscribed',
-                      subscription: { active: true, planType: null },
-                      studentLimit: 9999,
-                      createdAt: new Date().toISOString()
-                  });
-                  console.log("Sync Successful!");
-              }
-          } catch (e) {
-              console.error("Sync failed", e);
-          }
-          // Clear URL params
-          window.history.replaceState({}, document.title, window.location.pathname);
-          setIsSyncing(false);
-      }
-
       await new Promise(resolve => setTimeout(resolve, 1500));
       try { await seedDatabase(); } catch (e) {}
       setCurrentView('LOGIN');
     };
-
     initApp();
   }, []);
 
@@ -80,20 +44,22 @@ const App = () => {
   }, [currentUser, showSubModal]);
 
   const handleLogin = (user: UserProfile) => {
-    setCachedDetails({ name: user.instituteName, mobile: user.mobile });
     setCurrentUser(user);
-    if (user.role === 'admin') setCurrentView('ADMIN_PANEL');
-    else setCurrentView(user.role === 'owner' ? 'DASHBOARD_OWNER' : 'DASHBOARD_TEACHER');
+    if (user.role === 'admin') {
+      setCurrentView('ADMIN_PANEL');
+    } else if (user.role === 'teacher') {
+      // Fix: Handle teacher login by setting teacher dashboard view
+      setCurrentView('DASHBOARD_TEACHER');
+    } else {
+      setCurrentView('DASHBOARD_OWNER');
+    }
   };
 
   const handleUserUpdate = (updatedUser: UserProfile) => {
     setCurrentUser(updatedUser);
-    setCachedDetails(prev => ({ ...prev, name: updatedUser.instituteName }));
   };
 
   const handleLogout = () => {
-    setLoginStep('DETAILS');
-    setCachedDetails({name: '', mobile: ''});
     setCurrentUser(null);
     setCurrentView('LOGIN');
   };
@@ -110,27 +76,29 @@ const App = () => {
        if (view === 'STUDENTS_VIEW') setCurrentView('STUDENTS_VIEW');
        if (view === 'FEES_VIEW') setCurrentView('FEES_VIEW');
        if (view === 'EXAMS_VIEW') setCurrentView('EXAMS_VIEW');
+       // Fix: Added support for navigating to owner and teacher dashboards
        if (view === 'DASHBOARD_OWNER') setCurrentView('DASHBOARD_OWNER');
+       if (view === 'DASHBOARD_TEACHER') setCurrentView('DASHBOARD_TEACHER');
        if (view === 'SETTINGS_VIEW') setCurrentView('SETTINGS_VIEW');
        if (view === 'SUBSCRIPTION') setShowSubModal(true);
     }
   };
 
   const renderView = () => {
-    if (currentView === 'SPLASH' || isSyncing) {
+    if (currentView === 'SPLASH') {
         return (
-          <div className="h-screen w-full flex flex-col items-center justify-center bg-gradient-to-br from-[#f8fafc] to-[#e6fffa]">
+          <div className="h-screen w-full flex flex-col items-center justify-center bg-[#f8fafc]">
             <h1 className="text-4xl font-bold text-[#1e293b] mb-4">Super Management</h1>
             <div className="flex flex-col items-center gap-3">
                 <Loader2 className="animate-spin text-teal-600" size={40} />
-                <p className="text-gray-500 font-medium">{isSyncing ? "Syncing Academy Data..." : "Loading Application..."}</p>
+                <p className="text-gray-500 font-medium">Initializing...</p>
             </div>
           </div>
         );
     }
     
     if (currentView === 'LOGIN') {
-        return <Login onLoginSuccess={handleLogin} lang={lang} initialStep={loginStep} initialDetails={cachedDetails} />;
+        return <Login onLoginSuccess={handleLogin} lang={lang} />;
     }
 
     if (currentView === 'ADMIN_PANEL') return <AdminPanel onLogout={handleLogout} />;
@@ -139,7 +107,7 @@ const App = () => {
     let content;
     switch (currentView) {
       case 'DASHBOARD_OWNER':
-      case 'DASHBOARD_TEACHER':
+      case 'DASHBOARD_TEACHER': // Fix: Render dashboard for both owners and teachers
         content = <Dashboard user={currentUser} lang={lang} onNavigate={navigate} onUpdateUser={handleUserUpdate} />;
         break;
       case 'STUDENTS_VIEW':

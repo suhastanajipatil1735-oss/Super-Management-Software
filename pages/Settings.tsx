@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { UserProfile } from '../types';
 import { db } from '../services/db';
 import { Card, Button, Input } from '../components/UI';
 import { LABELS } from '../constants';
-import { ArrowLeft, User, Shield, Edit2, Save, X, Mail, MapPin, Key, Phone, Crown } from 'lucide-react';
+import { ArrowLeft, Edit2, Save, Mail, MapPin, Phone, Crown, Shield } from 'lucide-react';
 
 interface SettingsProps {
   user: UserProfile;
@@ -16,15 +17,11 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
   const labels = LABELS[lang];
   const [isEditing, setIsEditing] = useState(false);
   
-  // Form State
   const [formData, setFormData] = useState({
     instituteName: user.instituteName,
     email: user.email || '',
-    address: user.address || '',
-    teacherCode: user.teacherCode || ''
+    address: user.address || ''
   });
-
-  const isOwner = user.role === 'owner';
 
   const handleSave = async () => {
     if (!formData.instituteName.trim()) return alert("Institute name cannot be empty");
@@ -36,21 +33,11 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
             address: formData.address
         };
 
-        if (isOwner) {
-            updateData.teacherCode = formData.teacherCode;
-        }
-
-        // Update in DB
         await db.users.update(user.id, updateData);
-        
-        // Update local state in App
-        const updatedUser = { ...user, ...updateData };
-        onUpdateUser(updatedUser);
-        
+        onUpdateUser({ ...user, ...updateData });
         setIsEditing(false);
         alert("Profile Updated Successfully!");
     } catch (e) {
-        console.error("Failed to update profile", e);
         alert("Failed to update profile");
     }
   };
@@ -59,16 +46,9 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
       setFormData({
         instituteName: user.instituteName,
         email: user.email || '',
-        address: user.address || '',
-        teacherCode: user.teacherCode || ''
+        address: user.address || ''
       });
       setIsEditing(false);
-  };
-
-  const renderPlanText = () => {
-      if (user.plan !== 'subscribed') return 'Free Plan';
-      if (user.subscription.planType === 'lifetime') return 'Lifetime Membership';
-      return 'Premium Plan Active';
   };
 
   return (
@@ -81,7 +61,6 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
       </div>
 
       <div className="space-y-6">
-        {/* Profile Card */}
         <Card className="relative overflow-hidden">
           <div className="flex justify-between items-start mb-6 border-b border-gray-100 pb-4">
             <div className="flex items-center gap-3">
@@ -101,7 +80,6 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
           </div>
 
           <div className="space-y-5">
-              {/* Institute Name */}
               <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Institute / Academy Name</label>
                   {isEditing ? (
@@ -118,17 +96,14 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                   )}
               </div>
 
-              {/* Mobile (Read Only) */}
               <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Mobile Number</label>
                   <div className="flex items-center gap-2 text-gray-700 bg-gray-50 p-2 rounded-lg border border-gray-100">
                       <Phone size={16} className="text-gray-400" />
                       <span className="font-mono">{user.mobile}</span>
-                      <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded ml-auto">Cannot Change</span>
                   </div>
               </div>
 
-              {/* Email */}
               <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Email Address</label>
                   {isEditing ? (
@@ -146,7 +121,6 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                   )}
               </div>
 
-              {/* Address */}
               <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Address</label>
                   {isEditing ? (
@@ -162,35 +136,11 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
                       </div>
                   )}
               </div>
-
-              {/* Teacher Code - Owner Only */}
-              {isOwner && (
-                  <div className="pt-4 border-t border-gray-100 mt-4">
-                      <label className="block text-sm font-medium text-gray-500 mb-1">Teacher Access Code</label>
-                      {isEditing ? (
-                          <Input 
-                              value={formData.teacherCode} 
-                              onChange={e => setFormData({...formData, teacherCode: e.target.value})}
-                              placeholder="Set a code for teachers"
-                          />
-                      ) : (
-                          <div className="flex items-center gap-2 text-gray-700">
-                              <Key size={18} className="text-gray-400" />
-                              <span className="font-mono font-bold bg-yellow-50 text-yellow-700 px-2 py-0.5 rounded">
-                                  {user.teacherCode || 'Not Set'}
-                              </span>
-                          </div>
-                      )}
-                      <p className="text-xs text-gray-400 mt-1">Share this code with your teachers to let them login.</p>
-                  </div>
-              )}
           </div>
 
           {isEditing && (
               <div className="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100 animate-fade-in">
-                  <Button variant="secondary" onClick={handleCancel}>
-                      Cancel
-                  </Button>
+                  <Button variant="secondary" onClick={handleCancel}>Cancel</Button>
                   <Button onClick={handleSave} className="bg-green-600 hover:bg-green-700">
                       <Save size={18} /> Save Changes
                   </Button>
@@ -198,7 +148,6 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
           )}
         </Card>
 
-        {/* Subscription Info Card */}
         <Card>
           <div className="flex items-center gap-4 mb-4">
              <div className="p-3 bg-purple-100 text-purple-600 rounded-full">
@@ -207,20 +156,11 @@ const Settings: React.FC<SettingsProps> = ({ user, lang, onBack, onUpdateUser })
             <div>
               <h3 className="font-bold text-lg">Subscription Plan</h3>
               <p className={`${user.plan === 'subscribed' ? 'text-green-600' : 'text-gray-500'} font-semibold`}>
-                {renderPlanText()}
+                {user.plan === 'subscribed' ? 'Premium Plan Active' : 'Free Plan'}
               </p>
             </div>
           </div>
-           {user.plan !== 'subscribed' && (
-              <p className="text-sm text-gray-500 mt-2 pl-14">
-                Current Limit: <span className="font-bold text-gray-800">{user.studentLimit} Students</span>
-              </p>
-           )}
         </Card>
-
-        <div className="text-center pt-8 text-gray-400 text-sm">
-          Super Management v1.0.3
-        </div>
       </div>
     </div>
   );

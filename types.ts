@@ -1,4 +1,7 @@
-export type Role = 'owner' | 'teacher' | 'admin';
+
+// Fix: Added 'teacher' to Role and 'DASHBOARD_TEACHER' to ViewState to support full application functionality
+
+export type Role = 'owner' | 'admin' | 'teacher';
 export type PlanType = 'free' | 'subscribed';
 
 export interface Subscription {
@@ -17,10 +20,10 @@ export interface UserProfile {
   subscription: Subscription;
   studentLimit: number;
   createdAt: string;
-  teacherCode?: string; // Code set by owner
-  linkedOwnerMobile?: string; // For teachers, points to the owner
   email?: string;
   address?: string;
+  teacherCode?: string;
+  linkedOwnerMobile?: string;
 }
 
 export interface Student {
@@ -43,14 +46,14 @@ export interface AttendanceRecord {
   classGrade: string;
   presentStudentIds: string[];
   absentStudentIds: string[];
-  submittedBy: string; // Teacher or Owner mobile/name
+  submittedBy: string; 
 }
 
 export interface SubscriptionRequest {
   id: number;
   ownerMobile: string;
   instituteName: string;
-  monthsRequested: number; // We will use 999 for Lifetime
+  monthsRequested: number; 
   status: 'pending' | 'accepted' | 'declined';
   requestDate: string;
 }
@@ -75,9 +78,8 @@ export interface AdminCredentials {
 export type ViewState = 
   | 'SPLASH' 
   | 'LOGIN' 
-  | 'OTP' 
   | 'DASHBOARD_OWNER' 
-  | 'DASHBOARD_TEACHER' 
+  | 'DASHBOARD_TEACHER'
   | 'ADMIN_PANEL'
   | 'STUDENTS_VIEW'
   | 'ATTENDANCE_VIEW'
