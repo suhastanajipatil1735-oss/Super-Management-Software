@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useMemo } from 'react';
 import { UserProfile, Student } from '../types';
 import { db } from '../services/db';
 import { Card, Button, Input, Select, Modal } from '../components/UI';
 import { LABELS, FREE_STUDENT_LIMIT } from '../constants';
-import { ArrowLeft, Save, Plus } from 'lucide-react';
+import { ArrowLeft, Save, Plus, Search, Filter } from 'lucide-react';
 
 interface StudentsProps {
   user: UserProfile;
@@ -16,6 +17,9 @@ interface StudentsProps {
 const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionReq, autoOpenAdd = false }) => {
   const [students, setStudents] = useState<Student[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClass, setSelectedClass] = useState('ALL');
+  
   const labels = LABELS[lang];
 
   // Determine owner mobile
@@ -36,11 +40,9 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
   // Handle Auto Open Add Modal
   useEffect(() => {
     if (autoOpenAdd && isOwner && dataOwnerMobile) {
-        // Check limit directly from DB to be safe
         const checkLimitAndOpen = async () => {
             const count = await db.students.where('ownerMobile').equals(dataOwnerMobile).count();
             if (count < user.studentLimit) {
-                // Clear form and open
                 setFormData({ classGrade: '1', feesTotal: 0, feesPaid: 0 });
                 setShowAddModal(true);
             } else {
@@ -60,13 +62,12 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
   };
 
   const handleAddClick = () => {
-    if (!isOwner) return; // Extra safety
+    if (!isOwner) return;
     if (students.length >= user.studentLimit) {
       alert(labels.limitReached);
       onSubscriptionReq();
       return;
     }
-    // Clear form and open
     setFormData({ classGrade: '1', feesTotal: 0, feesPaid: 0 });
     setShowAddModal(true);
   };
@@ -78,7 +79,6 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
       return;
     }
 
-    // Double check limit before saving
     const count = await db.students.where('ownerMobile').equals(dataOwnerMobile).count();
     if (count >= user.studentLimit) {
         alert(labels.limitReached);
@@ -89,7 +89,7 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
 
     const newStudent: Student = {
       id: Date.now().toString(),
-      ownerMobile: dataOwnerMobile, // Assign to correct owner
+      ownerMobile: dataOwnerMobile,
       name: formData.name,
       mobile: formData.mobile,
       rollNo: formData.rollNo || '',
@@ -105,6 +105,15 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
     loadStudents();
   };
 
+  // Filter Logic
+  const filteredStudents = useMemo(() => {
+    return students.filter(student => {
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesClass = selectedClass === 'ALL' || student.classGrade === selectedClass;
+      return matchesSearch && matchesClass;
+    });
+  }, [students, searchTerm, selectedClass]);
+
   const calculateDueFees = () => {
     const total = Number(formData.feesTotal) || 0;
     const paid = Number(formData.feesPaid) || 0;
@@ -114,41 +123,83 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
   const dueAmount = calculateDueFees();
 
   return (
-    <div className="p-4 max-w-5xl mx-auto animate-fade-in">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="p-4 max-w-5xl mx-auto animate-fade-in space-y-6">
+      <div className="flex items-center gap-4">
         <Button size="sm" variant="ghost" onClick={onBack}>
           <ArrowLeft size={20} />
         </Button>
         <h2 className="text-2xl font-bold">{labels.students}</h2>
         {isOwner && (
             <div className="ml-auto">
-            <Button size="sm" onClick={handleAddClick}>
-                <Plus size={18} /> {labels.addStudent}
-            </Button>
+              <Button size="sm" onClick={handleAddClick} className="bg-teal-600 hover:bg-teal-700">
+                  <Plus size={18} /> {labels.addStudent}
+              </Button>
             </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {students.map((student) => (
-          <Card key={student.id} className="flex justify-between items-center">
-            <div>
-              <h4 className="font-bold text-lg">{student.name}</h4>
-              <p className="text-gray-500 text-sm">Class: {student.classGrade} • Roll: {student.rollNo}</p>
-              <p className="text-gray-400 text-xs">{student.mobile}</p>
-            </div>
-            {isOwner && (
-                <div className="text-right">
-                <p className="text-xs text-gray-500">Fees</p>
-                <p className={`font-bold ${student.feesTotal - student.feesPaid > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                    {student.feesTotal - student.feesPaid > 0 ? `Due: ₹${student.feesTotal - student.feesPaid}` : 'Paid'}
-                </p>
+      {/* Filter & Search Bar */}
+      <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-4 items-end">
+        <div className="w-full md:w-1/3">
+          <Select 
+            label="Filter by Class"
+            value={selectedClass}
+            onChange={e => setSelectedClass(e.target.value)}
+            options={[
+              { value: 'ALL', label: 'All Classes' },
+              ...Array.from({length: 12}, (_, i) => ({ value: (i+1).toString(), label: `Class ${i+1}` }))
+            ]}
+          />
+        </div>
+        <div className="w-full md:w-2/3 relative">
+          <label className="block text-gray-700 text-sm font-medium mb-1.5 ml-1">Search Student Name</label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+            <input 
+              type="text"
+              placeholder="Enter student name..."
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none transition-all"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Student List Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredStudents.map((student) => (
+          <Card key={student.id} className="relative overflow-hidden group border-l-4 border-l-blue-500 hover:shadow-md transition-shadow">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <h4 className="font-bold text-lg text-gray-800 leading-tight">{student.name}</h4>
+                <div className="flex items-center gap-2">
+                   <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold uppercase tracking-wider border border-blue-100">
+                     Class {student.classGrade}
+                   </span>
+                   <span className="text-gray-400 text-xs">Roll: {student.rollNo || 'N/A'}</span>
                 </div>
-            )}
+                <p className="text-gray-500 text-xs font-mono">{student.mobile}</p>
+              </div>
+              {isOwner && (
+                  <div className="text-right">
+                    <p className="text-[10px] text-gray-400 font-bold uppercase">Balance</p>
+                    <p className={`font-bold text-sm ${student.feesTotal - student.feesPaid > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                        {student.feesTotal - student.feesPaid > 0 ? `₹${student.feesTotal - student.feesPaid}` : 'Paid'}
+                    </p>
+                  </div>
+              )}
+            </div>
           </Card>
         ))}
-        {students.length === 0 && (
-            <p className="text-center text-gray-400 col-span-2 mt-10">No students added yet.</p>
+        {filteredStudents.length === 0 && (
+            <div className="col-span-full py-20 text-center bg-white rounded-2xl border border-dashed border-gray-200">
+               <Search size={48} className="mx-auto text-gray-200 mb-4" />
+               <p className="text-gray-400 font-medium">No matching students found.</p>
+               {searchTerm || selectedClass !== 'ALL' ? (
+                 <button onClick={() => {setSearchTerm(''); setSelectedClass('ALL');}} className="text-blue-500 text-sm mt-2 hover:underline">Clear all filters</button>
+               ) : null}
+            </div>
         )}
       </div>
 
@@ -203,7 +254,6 @@ const Students: React.FC<StudentsProps> = ({ user, lang, onBack, onSubscriptionR
             />
           </div>
           
-          {/* Due Fees Calculation Display */}
           <div className="flex justify-end -mt-2">
              <div className={`px-3 py-1 rounded-md text-sm font-bold ${dueAmount > 0 ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-600'}`}>
                 Due Fees: ₹{dueAmount}
