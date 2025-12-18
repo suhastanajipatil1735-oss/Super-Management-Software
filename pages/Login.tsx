@@ -4,7 +4,7 @@ import { Card, Button, Input } from '../components/UI';
 import { ADMIN_CREDS, LABELS } from '../constants';
 import { db } from '../services/db';
 import { UserProfile } from '../types';
-import { syncUserToSupabase } from '../services/supabase';
+import { syncToAirtable } from '../services/airtable';
 
 interface LoginProps {
   onLoginSuccess: (user: UserProfile) => void;
@@ -40,7 +40,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
         return;
       }
 
-      // 2. Process Owner Login (Local Storage / IndexedDB)
+      // 2. Process Owner Login
       let user = await db.users.where('mobile').equals(details.mobile).first();
       
       if (!user) {
@@ -60,9 +60,11 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
          user = { ...user, instituteName: details.name };
       }
 
-      // 3. Sync to Supabase in background
-      syncUserToSupabase(user.mobile, user.instituteName, user.plan)
-        .catch(err => console.warn("Supabase initial sync failed", err));
+      // 3. Sync to Airtable
+      syncToAirtable({
+        instituteName: user.instituteName,
+        mobile: user.mobile
+      }).catch(err => console.warn("Airtable sync failed", err));
       
       onLoginSuccess(user);
     } catch (err) {
@@ -86,7 +88,7 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
           <div className="space-y-6">
              <div className="flex justify-between items-center">
                 <h2 className="text-xl font-bold text-gray-700">{labels.loginTitle}</h2>
-                <div className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold uppercase">Supabase Cloud</div>
+                <div className="text-[10px] bg-teal-100 text-teal-700 px-2 py-0.5 rounded-full font-bold uppercase">Airtable Cloud</div>
              </div>
              <Input 
                label={labels.instName} 
@@ -105,19 +107,10 @@ const Login: React.FC<LoginProps> = ({ onLoginSuccess, lang }) => {
                disabled={isLoggingIn}
              />
              <Button className="w-full h-12 text-lg font-bold" onClick={handleLogin} disabled={isLoggingIn}>
-               {isLoggingIn ? (
-                 <span className="flex items-center gap-2">
-                   <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                   Secure Connection...
-                 </span>
-               ) : labels.sendCode}
+               {isLoggingIn ? "Connecting to Airtable..." : labels.sendCode}
              </Button>
           </div>
         </Card>
-        
-        <div className="text-center">
-          <p className="text-[10px] text-gray-400 font-medium uppercase tracking-widest">Powered by Google AI Studio & Supabase</p>
-        </div>
       </div>
     </div>
   );
