@@ -61,7 +61,7 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
       setShowStatusModal(true);
   };
 
-  const generateStatusPDF = (student: Student) => {
+  const generateStatusPDF = (student: Student, refId: string) => {
       const doc = new jsPDF();
       
       // Header
@@ -83,7 +83,7 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
       doc.setTextColor(45, 55, 72);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`Ref ID: STS-${Date.now().toString().slice(-6)}`, 20, 55);
+      doc.text(`Ref ID: ${refId}`, 20, 55);
       doc.text(`Date: ${new Date().toLocaleDateString('en-IN')}`, 190, 55, { align: 'right' });
 
       // Student Details Box
@@ -135,7 +135,6 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
       const balance = student.feesTotal - student.feesPaid;
       doc.text("OUTSTANDING BALANCE", 20, tableStartY + 25);
       
-      // Fixed syntax error here
       if (balance > 0) {
           doc.setTextColor(229, 62, 62); // Danger Red
       } else {
@@ -163,14 +162,29 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
       doc.save(`${student.name.replace(/\s+/g, '_')}_Fees_Status.pdf`);
   };
 
-  const handleDownloadStatus = () => {
+  const handleDownloadStatus = async () => {
       if (!selectedStudent) return;
       setIsProcessing(true);
       
-      // Generate PDF
-      generateStatusPDF(selectedStudent);
+      const refId = `STS-${Date.now().toString().slice(-6)}`;
 
-      // WhatsApp Message
+      // 1. Create a History Log entry so it shows up in the "Recent Activity" list
+      const log: ReceiptLog = {
+          ownerMobile: user.mobile,
+          studentId: selectedStudent.id,
+          studentName: selectedStudent.name,
+          amount: 0, // 0 indicates a status check log
+          date: new Date().toISOString(),
+          receiptNo: refId,
+          paymentMode: 'Online' // Placeholder
+      };
+      
+      await db.receiptLogs.add(log);
+      
+      // 2. Generate PDF
+      generateStatusPDF(selectedStudent, refId);
+
+      // 3. WhatsApp Message
       const balance = selectedStudent.feesTotal - selectedStudent.feesPaid;
       const msg = `*Fees Status Report - ${user.instituteName}*\n\nStudent: ${selectedStudent.name}\nClass: ${selectedStudent.classGrade}\n\nTotal Fees: ₹${selectedStudent.feesTotal}\nPaid: ₹${selectedStudent.feesPaid}\n*Pending Due: ₹${balance}*\n\nThank you.`;
       
@@ -178,6 +192,7 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
           openWhatsApp(selectedStudent.mobile, msg);
           setIsProcessing(false);
           setShowStatusModal(false);
+          loadHistory(); // Refresh the activity list
       }, 800);
   };
 
@@ -263,36 +278,52 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
           )}
       </div>
 
-      {/* Transaction History Section remains for general tracking */}
+      {/* Activity Log - Shows History Date Wise */}
       <div className="mt-8">
           <h3 className="font-bold text-lg text-gray-800 mb-4 flex items-center gap-2">
-              <History size={20} className="text-blue-600" /> Recent Activity
+              <History size={20} className="text-blue-600" /> Recent Activity (Generation History)
           </h3>
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="overflow-x-auto">
                   <table className="w-full text-left">
                       <thead className="bg-gray-50 border-b border-gray-100">
                           <tr>
-                              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Date</th>
+                              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Date & Time</th>
                               <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Student</th>
-                              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Amount</th>
+                              <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Status</th>
                               <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">Receipt</th>
                           </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-50 text-sm">
-                          {receiptLogs.slice(0, 10).map(log => (
+                          {receiptLogs.map(log => (
                               <tr key={log.id} className="hover:bg-gray-50 transition-colors">
-                                  <td className="px-6 py-3 text-gray-500">{new Date(log.date).toLocaleDateString()}</td>
+                                  <td className="px-6 py-3 text-gray-500 text-xs">
+                                      {new Date(log.date).toLocaleDateString()} {new Date(log.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </td>
                                   <td className="px-6 py-3 font-medium text-gray-800">{log.studentName}</td>
-                                  <td className="px-6 py-3 font-bold text-green-600">₹{log.amount}</td>
+                                  <td className="px-6 py-3">
+                                      {log.amount === 0 ? (
+                                          <span className="text-[10px] bg-blue-50 text-blue-600 px-2 py-0.5 rounded font-bold uppercase">Status Check</span>
+                                      ) : (
+                                          <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded font-bold uppercase">₹{log.amount} Paid</span>
+                                      )}
+                                  </td>
                                   <td className="px-6 py-3 text-right">
-                                      <button className="text-blue-600 hover:underline text-xs" onClick={() => alert("Legacy receipt generation.")}>View</button>
+                                      <button 
+                                        className="text-blue-600 hover:underline text-xs flex items-center justify-end gap-1 ml-auto" 
+                                        onClick={async () => {
+                                            const s = await db.students.get(log.studentId);
+                                            if (s) generateStatusPDF(s, log.receiptNo);
+                                        }}
+                                      >
+                                          <Download size={14} /> Redownload
+                                      </button>
                                   </td>
                               </tr>
                           ))}
                           {receiptLogs.length === 0 && (
                               <tr>
-                                  <td colSpan={4} className="text-center py-10 text-gray-400 italic text-xs">No recent payment history.</td>
+                                  <td colSpan={4} className="text-center py-10 text-gray-400 italic text-xs">No status reports generated yet.</td>
                               </tr>
                           )}
                       </tbody>
@@ -301,7 +332,7 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
           </div>
       </div>
 
-      {/* Status Modal - NO INPUTS AS REQUESTED */}
+      {/* Status Modal */}
       <Modal isOpen={showStatusModal} onClose={() => setShowStatusModal(false)} title="Fees Status Summary">
           {selectedStudent && (
               <div className="space-y-6">
@@ -337,7 +368,7 @@ const FeesReceipts: React.FC<FeesReceiptsProps> = ({ user, lang, onBack }) => {
                           )}
                       </Button>
                       <p className="text-[10px] text-gray-400 text-center mt-3 uppercase tracking-widest font-bold">
-                          Official Status Report will be generated
+                          Official Status Report will be generated and logged
                       </p>
                   </div>
               </div>
