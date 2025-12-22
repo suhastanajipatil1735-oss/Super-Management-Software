@@ -125,7 +125,8 @@ const App = () => {
 
   const handleVerifyCode = async () => {
     if (!currentUser) return;
-    if (activationCode.trim().toLowerCase() === 'suhaspatilsir666666') {
+    // Updated Secret Activation Code
+    if (activationCode.trim().toLowerCase() === 'suhaspatilsir') {
         setIsProcessing(true);
         try {
             const updatedUser: UserProfile = {
@@ -151,7 +152,7 @@ const App = () => {
             setIsProcessing(false);
         }
     } else {
-        alert("Incorrect activation code. Please contact Admin.");
+        alert("Incorrect activation code. Please contact Admin Suhas Patil Sir.");
     }
   };
 
