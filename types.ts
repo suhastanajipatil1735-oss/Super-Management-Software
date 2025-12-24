@@ -70,6 +70,25 @@ export interface ReceiptLog {
   paymentMode: 'Cash' | 'Online';
 }
 
+export interface TeacherProfile {
+  id?: number;
+  ownerMobile: string;
+  name: string;
+  mobile: string;
+  salaryAmount: number;
+  joiningDate: string;
+}
+
+export interface Expense {
+  id?: number;
+  ownerMobile: string;
+  category: 'Rent' | 'Salary' | 'Electricity' | 'Internet' | 'Other';
+  amount: number;
+  date: string; // ISO YYYY-MM-DD
+  description: string;
+  teacherId?: number; // Linked if category is Salary
+}
+
 export interface AdminCredentials {
   name: string;
   mobile: string;
@@ -87,4 +106,5 @@ export type ViewState =
   | 'ATTENDANCE_VIEW'
   | 'FEES_VIEW'
   | 'EXAMS_VIEW'
-  | 'SETTINGS_VIEW';
+  | 'SETTINGS_VIEW'
+  | 'EXPENSES_VIEW';

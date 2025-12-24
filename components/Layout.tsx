@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { UserProfile, ViewState } from '../types';
 import { 
   LayoutDashboard, Users, Calendar, Wallet, Settings, 
-  LogOut, Search, Menu, X, Crown, ClipboardList, UserMinus, AlertCircle
+  LogOut, Search, Menu, X, Crown, ClipboardList, UserMinus, AlertCircle, TrendingUp
 } from 'lucide-react';
 import { LABELS } from '../constants';
 
@@ -50,6 +50,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
       case 'ATTENDANCE_VIEW': return 'Attendance';
       case 'FEES_VIEW': return 'Fees & Receipts';
       case 'EXAMS_VIEW': return 'Exam Reports';
+      case 'EXPENSES_VIEW': return 'Expense Management';
       case 'SETTINGS_VIEW': return 'Settings';
       default: return 'Dashboard';
     }
@@ -88,6 +89,12 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
     },
     ...(user.role === 'owner' ? [
       { 
+        id: 'EXPENSES', 
+        view: 'EXPENSES_VIEW', 
+        icon: <TrendingUp size={20} />, 
+        label: 'Expenses' 
+      },
+      { 
         id: 'FEES', 
         view: 'FEES_VIEW', 
         icon: <Wallet size={20} />, 
@@ -110,9 +117,7 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
 
   return (
     <div className={`flex min-h-screen font-poppins transition-colors duration-500 ${isPaused ? 'bg-red-50' : 'bg-[#f1f5f9]'}`}>
-      {/* Sidebar - Desktop & Mobile */}
       <aside className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#1e293b] flex flex-col transform transition-transform duration-300 ease-in-out md:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} shadow-2xl`}>
-        {/* Sidebar Header - Fixed */}
         <div className="flex items-center justify-between h-20 px-6 border-b border-gray-700/50 shrink-0">
           <div className="flex items-center gap-3 overflow-hidden">
              <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#4fd1c5] to-[#38a169] flex items-center justify-center text-white font-bold text-xl shrink-0 shadow-inner">
@@ -127,7 +132,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
           </button>
         </div>
 
-        {/* Scrollable Navigation Area */}
         <div className="flex-1 overflow-y-auto custom-scrollbar scroll-smooth">
           <nav className="py-6 space-y-1">
             {navItems.map(item => (
@@ -148,7 +152,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
             ))}
           </nav>
           
-          {/* Logout Section */}
           <div className="py-6 border-t border-gray-700/50">
              <SidebarItem 
                icon={<LogOut size={20} />} 
@@ -166,7 +169,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
         </div>
       </aside>
 
-      {/* Main Content Area */}
       <div className="flex-1 md:ml-64 flex flex-col min-h-screen relative">
         {isPaused && (
           <div className="bg-red-600 text-white text-xs font-bold py-2 text-center sticky top-20 z-40 flex items-center justify-center gap-2 animate-pulse">
@@ -174,7 +176,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
           </div>
         )}
 
-        {/* Header */}
         <header className="h-20 bg-white shadow-sm flex items-center justify-between px-4 md:px-8 sticky top-0 z-40 shrink-0">
            <div className="flex items-center gap-4">
              <button onClick={() => setIsMobileMenuOpen(true)} className="md:hidden text-gray-600 p-2 hover:bg-gray-50 rounded-lg">
@@ -210,7 +211,6 @@ export const Layout: React.FC<LayoutProps> = ({ children, user, currentView, onN
            </div>
         </header>
 
-        {/* Page Content */}
         <main className={`p-4 md:p-8 overflow-y-auto flex-1 transition-opacity duration-300 ${isPaused ? 'opacity-30 pointer-events-none' : 'opacity-100'}`}>
            {children}
         </main>

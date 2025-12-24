@@ -9,6 +9,7 @@ import FeesReceipts from './pages/FeesReceipts';
 import ExamReports from './pages/ExamReports';
 import AdminPanel from './pages/AdminPanel';
 import Settings from './pages/Settings';
+import ExpenseManagement from './pages/ExpenseManagement';
 import { Layout } from './components/Layout';
 import { UserProfile, ViewState, SubscriptionRequest } from './types';
 import { db, seedDatabase } from './services/db';
@@ -125,7 +126,6 @@ const App = () => {
 
   const handleVerifyCode = async () => {
     if (!currentUser) return;
-    // Updated Secret Activation Code
     if (activationCode.trim().toLowerCase() === 'suhaspatilsir') {
         setIsProcessing(true);
         try {
@@ -222,6 +222,9 @@ const App = () => {
         break;
       case 'SETTINGS_VIEW':
         content = <Settings user={currentUser} lang={lang} onBack={() => setCurrentView('DASHBOARD_OWNER')} onUpdateUser={handleUserUpdate} />;
+        break;
+      case 'EXPENSES_VIEW':
+        content = <ExpenseManagement user={currentUser} lang={lang} onBack={() => setCurrentView('DASHBOARD_OWNER')} />;
         break;
       default: 
         content = <Dashboard user={currentUser} lang={lang} onNavigate={navigate} onUpdateUser={handleUserUpdate} />;
